@@ -1,0 +1,647 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>mycreativehq | 30 Day Content Challenge</title>
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link
+    href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Instrument+Serif:ital@0;1&display=swap"
+    rel="stylesheet"
+  />
+
+  <style>
+    :root {
+      --matcha-1: #eef5df;
+      --matcha-2: #dcebc0;
+      --matcha-3: #bfd69a;
+      --matcha-4: #87a951;
+
+      --lavender: #d9cdf7;
+      --peach: #ffd8c8;
+      --butter: #fff0b8;
+
+      --ink: #121212;
+      --text: #4a4a4a;
+      --muted: #6d6d6d;
+
+      --card-bg: rgba(255, 255, 255, 0.56);
+      --card-border: rgba(255, 255, 255, 0.72);
+      --card-shadow: 0 30px 80px rgba(71, 97, 35, 0.12);
+
+      --panel-bg: rgba(255, 255, 255, 0.5);
+      --panel-border: rgba(255, 255, 255, 0.7);
+
+      --input-bg: rgba(255, 255, 255, 0.74);
+      --input-border: rgba(100, 127, 62, 0.12);
+      --input-placeholder: rgba(18, 18, 18, 0.28);
+
+      --signup-green: #8caf49;
+      --signup-green-hover: #7b9d40;
+      --login-dark: #0d0d0f;
+      --login-dark-hover: #000000;
+
+      --status-error: #9f3a2a;
+      --status-success: #315d17;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      padding: 0;
+      min-height: 100%;
+    }
+
+    body {
+      font-family: "Inter", sans-serif;
+      color: var(--text);
+      background:
+        radial-gradient(circle at 10% 16%, rgba(255,255,255,0.82), transparent 22%),
+        radial-gradient(circle at 88% 12%, rgba(217,205,247,0.5), transparent 18%),
+        radial-gradient(circle at 82% 82%, rgba(255,216,200,0.42), transparent 18%),
+        radial-gradient(circle at 16% 82%, rgba(255,240,184,0.32), transparent 16%),
+        linear-gradient(135deg, var(--matcha-1) 0%, var(--matcha-2) 48%, var(--matcha-3) 100%);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px;
+      overflow-x: hidden;
+      position: relative;
+    }
+
+    .ambient {
+      position: fixed;
+      inset: 0;
+      pointer-events: none;
+      z-index: 0;
+      overflow: hidden;
+    }
+
+    .blob {
+      position: absolute;
+      border-radius: 999px;
+      filter: blur(28px);
+      opacity: 0.68;
+    }
+
+    .blob-1 {
+      width: 240px;
+      height: 240px;
+      background: rgba(255, 255, 255, 0.72);
+      top: 48px;
+      left: 88px;
+    }
+
+    .blob-2 {
+      width: 220px;
+      height: 220px;
+      background: rgba(217, 205, 247, 0.5);
+      right: 108px;
+      top: 82px;
+    }
+
+    .blob-3 {
+      width: 260px;
+      height: 260px;
+      background: rgba(255, 216, 200, 0.42);
+      right: 60px;
+      bottom: 28px;
+    }
+
+    .blob-4 {
+      width: 180px;
+      height: 180px;
+      background: rgba(255, 240, 184, 0.42);
+      left: 120px;
+      bottom: 76px;
+    }
+
+    .auth-wrap {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      max-width: 1080px;
+    }
+
+    .glass-card {
+      width: 100%;
+      border-radius: 40px;
+      padding: 40px;
+      background: var(--card-bg);
+      border: 1px solid var(--card-border);
+      backdrop-filter: blur(24px);
+      -webkit-backdrop-filter: blur(24px);
+      box-shadow: var(--card-shadow);
+      position: relative;
+      overflow: hidden;
+    }
+
+    .glass-card::before {
+      content: "";
+      position: absolute;
+      inset: 0;
+      background: linear-gradient(
+        180deg,
+        rgba(255,255,255,0.34) 0%,
+        rgba(255,255,255,0.12) 100%
+      );
+      pointer-events: none;
+    }
+
+    .loading-state {
+      display: none;
+      align-items: center;
+      justify-content: center;
+      min-height: 220px;
+      font-size: 18px;
+      font-weight: 700;
+      color: rgba(18, 18, 18, 0.65);
+      position: relative;
+      z-index: 1;
+    }
+
+    .loading-state.show {
+      display: flex;
+    }
+
+    .auth-content {
+      position: relative;
+      z-index: 1;
+    }
+
+    .auth-content.hide {
+      display: none;
+    }
+
+    .content {
+      display: grid;
+      grid-template-columns: 1.08fr 0.92fr;
+      gap: 34px;
+      align-items: stretch;
+    }
+
+    .left-panel {
+      padding: 18px 6px 18px 8px;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .brand {
+      margin: 0 0 18px;
+      font-family: "Instrument Serif", serif;
+      font-size: 22px;
+      line-height: 1;
+      letter-spacing: 0.01em;
+      color: #4d6630;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      width: fit-content;
+      padding: 11px 16px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.74);
+      border: 1px solid rgba(255,255,255,0.82);
+      box-shadow: 0 10px 22px rgba(73, 97, 35, 0.06);
+      margin-bottom: 18px;
+      font-size: 14px;
+      font-weight: 700;
+      color: #526837;
+    }
+
+    .badge-dot {
+      width: 8px;
+      height: 8px;
+      border-radius: 50%;
+      background: #8caf49;
+      flex-shrink: 0;
+    }
+
+    .title {
+      margin: 0;
+      max-width: 560px;
+      font-size: clamp(58px, 6vw, 86px);
+      line-height: 0.9;
+      letter-spacing: -0.075em;
+      font-weight: 900;
+      color: var(--ink);
+    }
+
+    .title-accent {
+      position: relative;
+      display: inline-block;
+    }
+
+    .title-accent::after {
+      content: "";
+      position: absolute;
+      left: 0;
+      bottom: 10px;
+      width: 100%;
+      height: 16px;
+      border-radius: 999px;
+      background: rgba(217, 205, 247, 0.72);
+      z-index: -1;
+    }
+
+    .subtitle {
+      margin: 24px 0 0;
+      max-width: 560px;
+      font-size: clamp(20px, 2vw, 28px);
+      line-height: 1.45;
+      color: rgba(18, 18, 18, 0.6);
+      font-weight: 500;
+    }
+
+    .right-panel {
+      background: var(--panel-bg);
+      border: 1px solid var(--panel-border);
+      border-radius: 34px;
+      padding: 34px 32px 30px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.35);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+    }
+
+    .mini-kicker {
+      margin: 0 0 18px;
+      font-family: "Instrument Serif", serif;
+      font-size: 16px;
+      font-style: italic;
+      line-height: 1;
+      letter-spacing: 0.04em;
+      color: #6f8451;
+    }
+
+    .form-shell {
+      margin-top: 6px;
+    }
+
+    .field-group + .field-group {
+      margin-top: 18px;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 10px;
+      font-size: 16px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      color: var(--ink);
+    }
+
+    input {
+      width: 100%;
+      height: 74px;
+      border-radius: 22px;
+      border: 1.5px solid var(--input-border);
+      background: var(--input-bg);
+      padding: 0 22px;
+      font-size: 20px;
+      color: var(--ink);
+      outline: none;
+      transition:
+        border-color 0.2s ease,
+        box-shadow 0.2s ease,
+        transform 0.15s ease,
+        background 0.2s ease;
+      box-shadow: 0 8px 18px rgba(77, 102, 48, 0.04);
+    }
+
+    input::placeholder {
+      color: var(--input-placeholder);
+    }
+
+    input:focus {
+      border-color: rgba(140, 175, 73, 0.3);
+      box-shadow: 0 0 0 5px rgba(140, 175, 73, 0.1);
+      transform: translateY(-1px);
+      background: rgba(255, 255, 255, 0.9);
+    }
+
+    .button-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+      margin-top: 24px;
+    }
+
+    button {
+      height: 74px;
+      border: none;
+      border-radius: 22px;
+      font-size: 20px;
+      font-weight: 800;
+      letter-spacing: -0.03em;
+      cursor: pointer;
+      transition:
+        transform 0.16s ease,
+        box-shadow 0.2s ease,
+        background 0.2s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    .btn-signup {
+      background: var(--signup-green);
+      color: #ffffff;
+      box-shadow: 0 14px 28px rgba(123, 157, 64, 0.24);
+    }
+
+    .btn-signup:hover {
+      background: var(--signup-green-hover);
+    }
+
+    .btn-login {
+      background: var(--login-dark);
+      color: #ffffff;
+      box-shadow: 0 14px 28px rgba(13, 13, 15, 0.16);
+    }
+
+    .btn-login:hover {
+      background: var(--login-dark-hover);
+    }
+
+    .status {
+      min-height: 24px;
+      margin-top: 14px;
+      font-size: 14px;
+      font-weight: 600;
+    }
+
+    .status.error {
+      color: var(--status-error);
+    }
+
+    .status.success {
+      color: var(--status-success);
+    }
+
+    @media (max-width: 980px) {
+      .content {
+        grid-template-columns: 1fr;
+        gap: 24px;
+      }
+
+      .left-panel {
+        padding: 6px 2px 0;
+      }
+
+      .title,
+      .subtitle {
+        max-width: 100%;
+      }
+    }
+
+    @media (max-width: 680px) {
+      body {
+        padding: 16px;
+      }
+
+      .glass-card {
+        padding: 22px;
+        border-radius: 28px;
+      }
+
+      .right-panel {
+        padding: 24px 20px 22px;
+        border-radius: 26px;
+      }
+
+      .title {
+        font-size: 50px;
+      }
+
+      .subtitle {
+        font-size: 19px;
+      }
+
+      input,
+      button {
+        height: 66px;
+        font-size: 18px;
+      }
+
+      .button-row {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="ambient">
+    <div class="blob blob-1"></div>
+    <div class="blob blob-2"></div>
+    <div class="blob blob-3"></div>
+    <div class="blob blob-4"></div>
+  </div>
+
+  <main class="auth-wrap">
+    <section class="glass-card">
+      <div id="loadingState" class="loading-state show">Checking your login...</div>
+
+      <div id="authContent" class="auth-content hide">
+        <div class="content">
+          <div class="left-panel">
+            <p class="brand">mycreativehq</p>
+
+            <div class="badge">
+              <span class="badge-dot"></span>
+              daily creator challenge
+            </div>
+
+            <h1 class="title">
+              30 Day <br />
+              <span class="title-accent">Content</span> Challenge
+            </h1>
+
+            <p class="subtitle">
+              Daily prompts, structure, and a little accountability for the creator who is tired of winging it.
+            </p>
+          </div>
+
+          <div class="right-panel">
+            <p class="mini-kicker">Lets Get Started!! </p>
+
+            <div class="form-shell">
+              <div class="field-group" id="nameGroup">
+                <label for="name">Your name</label>
+                <input id="name" type="text" placeholder="What should we call you?" autocomplete="name" />
+              </div>
+
+              <div class="field-group">
+                <label for="email">Email</label>
+                <input id="email" type="email" placeholder="you@example.com" autocomplete="email" />
+              </div>
+
+              <div class="field-group">
+                <label for="password">Password</label>
+                <input id="password" type="password" placeholder="Enter your password" autocomplete="current-password" />
+              </div>
+
+              <div class="button-row">
+                <button id="signupBtn" class="btn-signup" type="button">Sign Up</button>
+                <button id="loginBtn" class="btn-login" type="button">Log In</button>
+              </div>
+
+              <div id="statusMessage" class="status"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
+    import {
+      getAuth,
+      createUserWithEmailAndPassword,
+      signInWithEmailAndPassword,
+      onAuthStateChanged
+    } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
+    import {
+      getFirestore,
+      doc,
+      setDoc,
+      getDoc,
+      serverTimestamp
+    } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyDJt-uwfTaIC6WDvg8rlhj4GjpsGOis8TM",
+      authDomain: "content-challenge-app.firebaseapp.com",
+      projectId: "content-challenge-app",
+      storageBucket: "content-challenge-app.firebasestorage.app",
+      messagingSenderId: "163888513221",
+      appId: "1:163888513221:web:9646f7d215cf3b0822b0ac",
+      measurementId: "G-MLVZSXG02E"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    const loadingState = document.getElementById("loadingState");
+    const authContent = document.getElementById("authContent");
+    const statusMessage = document.getElementById("statusMessage");
+    const emailInput = document.getElementById("email");
+    const passwordInput = document.getElementById("password");
+    const signupBtn = document.getElementById("signupBtn");
+    const loginBtn = document.getElementById("loginBtn");
+
+    function showStatus(message = "", type = "") {
+      statusMessage.textContent = message;
+      statusMessage.className = `status ${type}`;
+    }
+
+    function showAuth() {
+      loadingState.classList.remove("show");
+      authContent.classList.remove("hide");
+    }
+
+    function redirectToDashboard() {
+      window.location.href = "./dashboard.html";
+    }
+
+    async function ensureUserDoc(user) {
+      const userRef = doc(db, "users", user.uid);
+      const userSnap = await getDoc(userRef);
+
+      if (!userSnap.exists()) {
+        await setDoc(userRef, {
+          name: "",
+          challengeStarted: false,
+          currentChallenge: 1,
+          completedCount: 0,
+          submissionLink: ""
+        });
+      }
+    }
+
+    async function redirectAfterAuth(user) {
+      await ensureUserDoc(user);
+      redirectToDashboard();
+    }
+
+    signupBtn.addEventListener("click", async () => {
+      const nameInput = document.getElementById("name");
+      const name = nameInput.value.trim();
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+
+      if (!name) {
+        showStatus("Enter your name.", "error");
+        nameInput.focus();
+        return;
+      }
+
+      if (!email || !password) {
+        showStatus("Enter your email and password.", "error");
+        return;
+      }
+
+      try {
+        showStatus("Creating your account...");
+        const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+
+        await setDoc(doc(db, "users", userCredential.user.uid), {
+          name,
+          challengeStarted: false,
+          currentChallenge: 1,
+          completedCount: 0,
+          submissionLink: ""
+        });
+
+        showStatus("Account created. Redirecting...", "success");
+        redirectToDashboard();
+      } catch (error) {
+        showStatus(error.message, "error");
+      }
+    });
+
+    loginBtn.addEventListener("click", async () => {
+      const email = emailInput.value.trim();
+      const password = passwordInput.value.trim();
+
+      if (!email || !password) {
+        showStatus("Enter your email and password.", "error");
+        return;
+      }
+
+      try {
+        showStatus("Logging you in...");
+        const userCredential = await signInWithEmailAndPassword(auth, email, password);
+        showStatus("Logged in. Redirecting...", "success");
+        await redirectAfterAuth(userCredential.user);
+      } catch (error) {
+        showStatus(error.message, "error");
+      }
+    });
+
+    onAuthStateChanged(auth, async (user) => {
+      if (user) {
+        await redirectAfterAuth(user);
+      } else {
+        showAuth();
+      }
+    });
+  </script>
+</body>
+</html>
