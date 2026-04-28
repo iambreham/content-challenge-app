@@ -514,6 +514,46 @@
       margin-bottom: 16px;
     }
 
+    .countdown-grid {
+      display: flex;
+      gap: 12px;
+      margin: 22px 0 4px;
+      flex-wrap: wrap;
+    }
+
+    .countdown-block {
+      border-radius: 18px;
+      padding: 14px 18px;
+      background: rgba(255,255,255,0.62);
+      border: 1px solid rgba(255,255,255,0.88);
+      text-align: center;
+      min-width: 72px;
+    }
+
+    .countdown-number {
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: -0.05em;
+      color: var(--ink);
+      line-height: 1;
+    }
+
+    .countdown-label {
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: rgba(22,22,22,0.44);
+      margin-top: 4px;
+    }
+
+    .primary-btn:disabled {
+      opacity: 0.4;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
     .bottom-nav {
       position: fixed;
       left: 50%;
@@ -652,8 +692,30 @@
         <div class="pre-start-pill">Challenge starts May 1st</div>
         <h2 class="challenge-title">You're in. Ready when you are.</h2>
         <p class="challenge-brief">
-          Your account is all set up. Hit the button below to officially kick off the 30-day challenge — your timer and progress start the moment you do.
+          Your account is all set up. The challenge officially kicks off May 1st — hit the button below to start your 30 days.
         </p>
+
+        <div id="countdownSection" style="display:none;">
+          <div class="countdown-grid">
+            <div class="countdown-block">
+              <div class="countdown-number" id="cdDays">00</div>
+              <div class="countdown-label">Days</div>
+            </div>
+            <div class="countdown-block">
+              <div class="countdown-number" id="cdHours">00</div>
+              <div class="countdown-label">Hours</div>
+            </div>
+            <div class="countdown-block">
+              <div class="countdown-number" id="cdMinutes">00</div>
+              <div class="countdown-label">Minutes</div>
+            </div>
+            <div class="countdown-block">
+              <div class="countdown-number" id="cdSeconds">00</div>
+              <div class="countdown-label">Seconds</div>
+            </div>
+          </div>
+        </div>
+
         <div class="button-row" style="margin-top: 28px;">
           <button id="startChallengeBtn" class="primary-btn" type="button">Start the Challenge</button>
         </div>
@@ -972,8 +1034,9 @@
       dashboardContent.style.display = "grid";
 
       if (!isChallengeStarted(userData)) {
-        welcomeText.textContent = "You\u2019re signed up. Start when you\u2019re ready.";
+        welcomeText.textContent = "You\u2019re signed up. The challenge kicks off May 1st.";
         preStartCard.style.display = "block";
+        initCountdown();
         return;
       }
 
@@ -1022,6 +1085,41 @@
       challengeCard.style.display = "block";
 
       startChallengeTimer(activeChallengeStartDate, activeChallenge.duration);
+    }
+
+    const LAUNCH_DATE = new Date("2026-05-01T00:00:00");
+
+    function initCountdown() {
+      const btn = startChallengeBtn;
+
+      function tick() {
+        const now = new Date();
+        const diff = LAUNCH_DATE - now;
+
+        if (diff <= 0) {
+          document.getElementById("countdownSection").style.display = "none";
+          btn.disabled = false;
+          btn.title = "";
+          return;
+        }
+
+        btn.disabled = true;
+        btn.title = "Available May 1st";
+        document.getElementById("countdownSection").style.display = "block";
+
+        const days = Math.floor(diff / (1000 * 60 * 60 * 24));
+        const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+        const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+        const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+        document.getElementById("cdDays").textContent = String(days).padStart(2, "0");
+        document.getElementById("cdHours").textContent = String(hours).padStart(2, "0");
+        document.getElementById("cdMinutes").textContent = String(minutes).padStart(2, "0");
+        document.getElementById("cdSeconds").textContent = String(seconds).padStart(2, "0");
+      }
+
+      tick();
+      setInterval(tick, 1000);
     }
 
     startChallengeBtn.addEventListener("click", async () => {

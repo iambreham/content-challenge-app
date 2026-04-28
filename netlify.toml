@@ -1,2 +1,7 @@
 [build]
   publish = "."
+
+[[redirects]]
+  from = "/dashboard"
+  to = "/dashboard.html"
+  status = 301
