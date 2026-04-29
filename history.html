@@ -239,14 +239,16 @@
       color: var(--overdue-text);
     }
 
-    .history-link-wrap {
+    .feeling-display {
       margin-top: 10px;
       padding-top: 14px;
       border-top: 1px solid rgba(22,22,22,0.08);
+      display: flex;
+      align-items: center;
+      gap: 10px;
     }
 
-    .history-link-label {
-      margin: 0 0 8px;
+    .feeling-label-small {
       font-size: 12px;
       font-weight: 800;
       letter-spacing: 0.08em;
@@ -254,23 +256,105 @@
       color: rgba(22,22,22,0.44);
     }
 
-    .history-link {
+    .feeling-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 6px 14px;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.6);
+      border: 1px solid rgba(22,22,22,0.1);
+      font-size: 14px;
+      font-weight: 700;
       color: var(--ink);
+    }
+
+    .reflection-section {
+      margin-top: 48px;
+    }
+
+    .reflection-intro {
+      margin: 12px 0 24px;
+      font-size: 18px;
+      line-height: 1.5;
+      color: rgba(22,22,22,0.62);
+    }
+
+    .strategy-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 12px;
+    }
+
+    .strategy-card {
+      border-radius: 22px;
+      padding: 18px 20px;
+      background: var(--glass);
+      border: 2px solid var(--border);
+      backdrop-filter: blur(22px);
+      -webkit-backdrop-filter: blur(22px);
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      transition: border-color 0.15s ease, background 0.15s ease;
+      box-shadow: var(--shadow);
+    }
+
+    .strategy-card.selected {
+      border-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .strategy-feeling {
+      font-size: 26px;
+      line-height: 1;
+      flex-shrink: 0;
+    }
+
+    .strategy-title {
+      font-size: 17px;
+      font-weight: 700;
+      color: var(--ink);
+      letter-spacing: -0.02em;
+      line-height: 1.3;
+    }
+
+    .save-playbook-btn {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 20px;
+      padding: 16px 32px;
+      border-radius: 18px;
+      background: var(--green);
+      color: #fff;
+      font-family: "Inter", sans-serif;
       font-size: 15px;
-      line-height: 1.6;
-      word-break: break-word;
+      font-weight: 800;
+      border: none;
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(120,152,69,0.2);
+      transition: background 0.2s ease;
     }
 
-    .history-link a {
-      color: var(--ink);
-      text-decoration: underline;
-      text-underline-offset: 3px;
+    .save-playbook-btn:hover {
+      background: var(--green-dark);
     }
 
-    .no-link {
-      color: rgba(22,22,22,0.5);
-      font-style: italic;
+    .save-playbook-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
     }
+
+    .reflection-status {
+      margin-top: 12px;
+      font-size: 15px;
+      font-weight: 700;
+    }
+
+    .reflection-status.success { color: var(--success-text); }
+    .reflection-status.error { color: #944838; }
 
     .empty-card {
       color: rgba(22,22,22,0.68);
@@ -373,6 +457,14 @@
     <div id="emptyState" class="empty-card" style="display:none;">
       No history yet. Finish a challenge first, then your receipts will stop being imaginary.
     </div>
+
+    <section id="reflectionSection" class="reflection-section" style="display:none;">
+      <h2 class="page-title" style="font-size: clamp(32px, 4vw, 54px);">What worked for you?</h2>
+      <p class="reflection-intro">You finished all 16. Pick the strategies that actually clicked — these become your personal playbook.</p>
+      <div id="strategyGrid" class="strategy-grid"></div>
+      <button id="saveStrategiesBtn" class="save-playbook-btn" type="button">Save My Playbook</button>
+      <div id="reflectionStatus" class="reflection-status"></div>
+    </section>
   </main>
 
   <nav class="bottom-nav">
@@ -391,7 +483,8 @@
     import {
       getFirestore,
       doc,
-      getDoc
+      getDoc,
+      updateDoc
     } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
 
     const firebaseConfig = {
@@ -412,6 +505,20 @@
     const errorState = document.getElementById("errorState");
     const historyList = document.getElementById("historyList");
     const emptyState = document.getElementById("emptyState");
+    const reflectionSection = document.getElementById("reflectionSection");
+    const strategyGrid = document.getElementById("strategyGrid");
+    const saveStrategiesBtn = document.getElementById("saveStrategiesBtn");
+    const reflectionStatus = document.getElementById("reflectionStatus");
+
+    const feelingMap = {
+      struggled: { emoji: "😅", label: "Struggled" },
+      okay:      { emoji: "😐", label: "It was okay" },
+      good:      { emoji: "✨", label: "Felt good" },
+      loved:     { emoji: "🔥", label: "Loved this one" }
+    };
+
+    let currentUserId = null;
+    let selectedStrategyIds = new Set();
 
     function showError(message) {
       loadingState.classList.remove("show");
@@ -436,7 +543,7 @@
       });
     }
 
-    function renderHistory(items) {
+    function renderHistory(items, completedCount, savedStrategies) {
       historyList.innerHTML = "";
 
       if (!items.length) {
@@ -460,7 +567,7 @@
         const badgeText = item.wasOverdue ? "Completed Late" : "On Time";
         const safeTitle = item.challengeTitle || `Challenge ${item.challengeId || ""}`.trim();
         const safeDate = formatDate(item.completedAt);
-        const safeLink = item.link && String(item.link).trim() ? String(item.link).trim() : "";
+        const feelingInfo = item.feeling ? (feelingMap[item.feeling] || null) : null;
 
         card.innerHTML = `
           <div class="history-top">
@@ -470,17 +577,11 @@
             </div>
             <div class="history-badge ${badgeClass}">${badgeText}</div>
           </div>
-
-          <div class="history-link-wrap">
-            <p class="history-link-label">Saved link</p>
-            <div class="history-link">
-              ${
-                safeLink
-                  ? `<a href="${safeLink}" target="_blank" rel="noopener noreferrer">${safeLink}</a>`
-                  : `<span class="no-link">No link saved for this one.</span>`
-              }
-            </div>
-          </div>
+          ${feelingInfo ? `
+          <div class="feeling-display">
+            <span class="feeling-label-small">Feeling</span>
+            <span class="feeling-tag">${feelingInfo.emoji} ${feelingInfo.label}</span>
+          </div>` : ""}
         `;
 
         historyList.appendChild(card);
@@ -490,9 +591,78 @@
       errorState.classList.remove("show");
       emptyState.style.display = "none";
       historyList.style.display = "grid";
+
+      if (completedCount >= 16) {
+        renderReflection(items, savedStrategies || []);
+      }
     }
 
+    function renderReflection(items, savedStrategies) {
+      const saved = new Set(savedStrategies.map(Number));
+      selectedStrategyIds = new Set(saved);
+
+      const byId = {};
+      items.forEach(item => {
+        if (item.challengeId) byId[item.challengeId] = item;
+      });
+
+      strategyGrid.innerHTML = "";
+
+      Object.values(byId)
+        .sort((a, b) => (a.challengeId || 0) - (b.challengeId || 0))
+        .forEach(item => {
+          const feelingInfo = item.feeling ? (feelingMap[item.feeling] || { emoji: "•", label: item.feeling }) : { emoji: "•", label: "No feeling logged" };
+          const card = document.createElement("div");
+          card.className = "strategy-card" + (saved.has(item.challengeId) ? " selected" : "");
+          card.dataset.id = item.challengeId;
+
+          card.innerHTML = `
+            <span class="strategy-feeling">${feelingInfo.emoji}</span>
+            <span class="strategy-title">${item.challengeTitle || `Challenge ${item.challengeId}`}</span>
+          `;
+
+          card.addEventListener("click", () => {
+            const id = Number(card.dataset.id);
+            if (selectedStrategyIds.has(id)) {
+              selectedStrategyIds.delete(id);
+              card.classList.remove("selected");
+            } else {
+              selectedStrategyIds.add(id);
+              card.classList.add("selected");
+            }
+          });
+
+          strategyGrid.appendChild(card);
+        });
+
+      reflectionSection.style.display = "block";
+    }
+
+    saveStrategiesBtn.addEventListener("click", async () => {
+      if (!currentUserId) return;
+
+      saveStrategiesBtn.disabled = true;
+      reflectionStatus.textContent = "";
+      reflectionStatus.className = "reflection-status";
+
+      try {
+        const userRef = doc(db, "users", currentUserId);
+        await updateDoc(userRef, {
+          savedStrategies: Array.from(selectedStrategyIds)
+        });
+        reflectionStatus.textContent = "Playbook saved!";
+        reflectionStatus.className = "reflection-status success";
+      } catch (error) {
+        console.error(error);
+        reflectionStatus.textContent = "Couldn’t save. Try again.";
+        reflectionStatus.className = "reflection-status error";
+      } finally {
+        saveStrategiesBtn.disabled = false;
+      }
+    });
+
     async function loadHistory(user) {
+      currentUserId = user.uid;
       const userRef = doc(db, "users", user.uid);
       const userSnap = await getDoc(userRef);
 
@@ -505,8 +675,10 @@
       const submissionHistory = Array.isArray(userData.submissionHistory)
         ? userData.submissionHistory
         : [];
+      const completedCount = Number.isFinite(userData.completedCount) ? userData.completedCount : 0;
+      const savedStrategies = Array.isArray(userData.savedStrategies) ? userData.savedStrategies : [];
 
-      renderHistory(submissionHistory);
+      renderHistory(submissionHistory, completedCount, savedStrategies);
     }
 
     onAuthStateChanged(auth, async (user) => {

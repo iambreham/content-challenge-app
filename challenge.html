@@ -291,6 +291,54 @@
       border-top: 1px solid rgba(22,22,22,0.08);
     }
 
+    .feeling-grid {
+      display: grid;
+      grid-template-columns: repeat(2, 1fr);
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .feeling-btn {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 6px;
+      padding: 16px 10px;
+      border-radius: 18px;
+      border: 2px solid rgba(22,22,22,0.1);
+      background: rgba(255,255,255,0.5);
+      cursor: pointer;
+      font-family: "Inter", sans-serif;
+      transition: border-color 0.15s ease, background 0.15s ease, transform 0.1s ease;
+    }
+
+    .feeling-btn:hover {
+      background: rgba(255,255,255,0.75);
+      border-color: rgba(22,22,22,0.2);
+    }
+
+    .feeling-btn.selected {
+      border-color: var(--green);
+      background: var(--green-soft);
+    }
+
+    .feeling-btn:active {
+      transform: scale(0.97);
+    }
+
+    .feeling-emoji {
+      font-size: 28px;
+      line-height: 1;
+    }
+
+    .feeling-label {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--ink);
+      text-align: center;
+    }
+
     .guide-block {
       margin-top: 22px;
       padding-top: 22px;
@@ -604,19 +652,30 @@
         </div>
 
         <div class="submission-wrap">
-          <h3 class="mini-title">Save your link</h3>
-          <p class="mini-text">
-            Drop the post link here if you want to track what you made. Or don’t. The point is still to finish the challenge.
-          </p>
+          <h3 class="mini-title">How’d you feel about that task?</h3>
+          <p class="mini-text">Pick one to unlock the next challenge.</p>
 
-          <div style="margin-top: 18px;">
-            <label for="submissionLink">Post or video link</label>
-            <input id="submissionLink" type="url" placeholder="https://..." />
+          <div class="feeling-grid">
+            <button class="feeling-btn" data-feeling="struggled" type="button">
+              <span class="feeling-emoji">😅</span>
+              <span class="feeling-label">Struggled</span>
+            </button>
+            <button class="feeling-btn" data-feeling="okay" type="button">
+              <span class="feeling-emoji">😐</span>
+              <span class="feeling-label">It was okay</span>
+            </button>
+            <button class="feeling-btn" data-feeling="good" type="button">
+              <span class="feeling-emoji">✨</span>
+              <span class="feeling-label">Felt good</span>
+            </button>
+            <button class="feeling-btn" data-feeling="loved" type="button">
+              <span class="feeling-emoji">🔥</span>
+              <span class="feeling-label">Loved this one</span>
+            </button>
           </div>
 
-          <div class="button-row">
-            <button id="saveLinkBtn" class="secondary-btn" type="button">Save Link</button>
-            <button id="completeBtn" class="primary-btn" type="button">Mark Complete + Unlock Next</button>
+          <div class="button-row" style="margin-top: 18px;">
+            <button id="completeBtn" class="primary-btn" type="button" disabled>Mark Complete + Unlock Next</button>
           </div>
 
           <div id="statusMessage" class="status"></div>
@@ -709,8 +768,6 @@
     const timerDisplay = document.getElementById("timerDisplay");
     const timerBox = document.getElementById("timerBox");
     const durationDisplay = document.getElementById("durationDisplay");
-    const submissionLink = document.getElementById("submissionLink");
-    const saveLinkBtn = document.getElementById("saveLinkBtn");
     const completeBtn = document.getElementById("completeBtn");
     const statusMessage = document.getElementById("statusMessage");
     const howToText = document.getElementById("howToText");
@@ -737,6 +794,7 @@
     let currentUserData = null;
     let currentChallenge = null;
     let isCurrentChallengeOverdue = false;
+    let selectedFeeling = null;
 
     function formatClock(totalMs) {
       const totalSeconds = Math.floor(Math.abs(totalMs) / 1000);
@@ -886,7 +944,9 @@
       challengeBrief.textContent = currentChallenge.brief;
       durationDisplay.textContent = `${currentChallenge.duration} hrs`;
 
-      submissionLink.value = currentUserData.submissionLink || "";
+      selectedFeeling = null;
+      completeBtn.disabled = true;
+      document.querySelectorAll(".feeling-btn").forEach(btn => btn.classList.remove("selected"));
 
       renderChallengeGuide(currentChallenge, isOverdue);
       startChallengeTimer(challengeStartDate, currentChallenge.duration);
@@ -896,20 +956,13 @@
       challengeContent.style.display = "grid";
     }
 
-    saveLinkBtn.addEventListener("click", async () => {
-      if (!currentUser) return;
-
-      try {
-        const userRef = doc(db, "users", currentUser.uid);
-        await updateDoc(userRef, {
-          submissionLink: submissionLink.value.trim()
-        });
-
-        setStatus("Link saved.", "success");
-      } catch (error) {
-        console.error(error);
-        setStatus("Couldn’t save that link.", "error");
-      }
+    document.querySelectorAll(".feeling-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        document.querySelectorAll(".feeling-btn").forEach(b => b.classList.remove("selected"));
+        btn.classList.add("selected");
+        selectedFeeling = btn.dataset.feeling;
+        completeBtn.disabled = false;
+      });
     });
 
     completeBtn.addEventListener("click", async () => {
@@ -919,12 +972,11 @@
         const currentChallengeNumber = currentUserData.currentChallenge || 1;
         const nextChallengeNumber = Math.min(currentChallengeNumber + 1, challenges.length);
         const nextChallenge = challenges.find(ch => ch.id === nextChallengeNumber) || challenges[challenges.length - 1];
-        const trimmedLink = submissionLink.value.trim();
 
         const historyEntry = {
           challengeId: currentChallenge.id,
           challengeTitle: currentChallenge.title,
-          link: trimmedLink,
+          feeling: selectedFeeling,
           completedAt: new Date().toISOString(),
           wasOverdue: isCurrentChallengeOverdue
         };
@@ -936,7 +988,6 @@
           startTime: serverTimestamp(),
           duration: nextChallenge.duration,
           completedCount: increment(1),
-          submissionLink: "",
           submissionHistory: arrayUnion(historyEntry)
         });
 
