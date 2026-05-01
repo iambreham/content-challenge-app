@@ -1034,7 +1034,6 @@
     });
 
     onAuthStateChanged(auth, async (user) => {
-      console.error("AUTH CHECK:", user ? "logged in" : "not logged in");
       if (!user) {
         window.location.href = "./index.html";
         return;
@@ -1045,7 +1044,7 @@
       try {
         await loadChallenge(user);
       } catch (error) {
-        console.error("LOAD ERROR:", error);
+        console.error(error);
         showError("Something went wrong loading your challenge.");
       }
     });
