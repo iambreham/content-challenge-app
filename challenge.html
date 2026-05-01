@@ -929,6 +929,72 @@
       const isOverdue = Date.now() > endTime;
       isCurrentChallengeOverdue = isOverdue;
 
+      // Check if current challenge is already completed
+      const submissionHistory = Array.isArray(currentUserData.submissionHistory) ? currentUserData.submissionHistory : [];
+      const currentChallengeCompleted = submissionHistory.some(entry => entry.challengeId === currentChallengeNumber);
+
+      if (currentChallengeCompleted && !isOverdue) {
+        // Challenge completed but timer hasn't expired yet
+        loadingState.classList.remove("show");
+        challengeContent.style.display = "none";
+
+        // Show locked message with countdown
+        pageSubtitle.textContent = "Challenge completed! Unlock the next one when the timer runs out.";
+        challengePill.textContent = `Challenge ${currentChallenge.id} of ${challenges.length}`;
+        challengeTitle.textContent = currentChallenge.title;
+
+        // Show countdown timer
+        const lockoutDiv = document.createElement("div");
+        lockoutDiv.style.cssText = "text-align: center; padding: 40px; font-size: 18px; color: #4b4b4b;";
+        lockoutDiv.id = "lockoutTimer";
+        document.querySelector(".app").appendChild(lockoutDiv);
+
+        function updateLockoutTimer() {
+          const timeLeft = endTime - Date.now();
+          if (timeLeft <= 0) {
+            lockoutDiv.textContent = "Next challenge unlocked! Refresh to continue.";
+            return;
+          }
+          const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+          const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+          const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+          lockoutDiv.textContent = `Next challenge unlocks in ${hours}h ${minutes}m ${seconds}s`;
+        }
+
+        updateLockoutTimer();
+        setInterval(updateLockoutTimer, 1000);
+        return;
+      }
+
+      if (currentChallengeCompleted && isOverdue && currentChallengeNumber < challenges.length) {
+        // Challenge completed and timer expired - show "Start Next Challenge" button
+        loadingState.classList.remove("show");
+        challengeContent.style.display = "none";
+
+        pageSubtitle.textContent = "Challenge completed! Ready for the next one?";
+        challengePill.textContent = `Challenge ${currentChallenge.id} of ${challenges.length}`;
+        challengeTitle.textContent = currentChallenge.title;
+
+        const nextBtn = document.createElement("button");
+        nextBtn.textContent = "Start Next Challenge";
+        nextBtn.className = "primary-btn";
+        nextBtn.style.cssText = "margin-top: 20px; padding: 16px 32px;";
+        nextBtn.addEventListener("click", async () => {
+          const nextChallengeNumber = currentChallengeNumber + 1;
+          const nextChallenge = challenges.find(ch => ch.id === nextChallengeNumber);
+          await updateDoc(doc(db, "users", currentUser.uid), {
+            currentChallenge: nextChallengeNumber,
+            startTime: serverTimestamp(),
+            duration: nextChallenge.duration
+          });
+          await loadChallenge(currentUser);
+        });
+
+        const contentDiv = document.querySelector(".app");
+        contentDiv.appendChild(nextBtn);
+        return;
+      }
+
       pageSubtitle.textContent = isOverdue
         ? "You can still complete this challenge. You're late, not dead."
         : "Finish this challenge before your brain tries to make it more complicated than it is.";
@@ -969,10 +1035,6 @@
       if (!currentUser || !currentUserData || !currentChallenge) return;
 
       try {
-        const currentChallengeNumber = currentUserData.currentChallenge || 1;
-        const nextChallengeNumber = Math.min(currentChallengeNumber + 1, challenges.length);
-        const nextChallenge = challenges.find(ch => ch.id === nextChallengeNumber) || challenges[challenges.length - 1];
-
         const historyEntry = {
           challengeId: currentChallenge.id,
           challengeTitle: currentChallenge.title,
@@ -984,14 +1046,12 @@
         const userRef = doc(db, "users", currentUser.uid);
 
         await updateDoc(userRef, {
-          currentChallenge: nextChallengeNumber,
-          startTime: serverTimestamp(),
-          duration: nextChallenge.duration,
           completedCount: increment(1),
           submissionHistory: arrayUnion(historyEntry)
         });
 
-        setStatus("Challenge completed. Loading next one...", "success");
+        setStatus("Challenge completed! Your next challenge unlocks when the timer runs out.", "success");
+        completeBtn.disabled = true;
         await loadChallenge(currentUser);
       } catch (error) {
         console.error(error);
