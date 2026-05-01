@@ -933,6 +933,52 @@
       const submissionHistory = Array.isArray(currentUserData.submissionHistory) ? currentUserData.submissionHistory : [];
       const currentChallengeCompleted = submissionHistory.some(entry => entry.challengeId === currentChallengeNumber);
 
+      // Check if previous challenge was completed but current one wasn't (user was incorrectly advanced)
+      const previousChallengeNumber = currentChallengeNumber - 1;
+      const previousChallengeCompleted = previousChallengeNumber > 0
+        ? submissionHistory.some(entry => entry.challengeId === previousChallengeNumber)
+        : false;
+
+      if (!currentChallengeCompleted && previousChallengeCompleted && previousChallengeNumber > 0) {
+        // User was advanced to next challenge but previous one's timer hasn't expired yet
+        // Find the previous challenge's start time and duration
+        const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
+        const previousEndTime = challengeStartDate.getTime() + previousChallenge.duration * 60 * 60 * 1000;
+        const previousIsOverdue = Date.now() > previousEndTime;
+
+        if (!previousIsOverdue) {
+          // Lock user back on previous challenge
+          currentChallenge = previousChallenge;
+          loadingState.classList.remove("show");
+          challengeContent.style.display = "none";
+
+          pageSubtitle.textContent = "Challenge completed! Unlock the next one when the timer runs out.";
+          challengePill.textContent = `Challenge ${previousChallenge.id} of ${challenges.length}`;
+          challengeTitle.textContent = previousChallenge.title;
+
+          const lockoutDiv = document.createElement("div");
+          lockoutDiv.style.cssText = "text-align: center; padding: 40px; font-size: 18px; color: #4b4b4b;";
+          lockoutDiv.id = "lockoutTimer";
+          document.querySelector(".app").appendChild(lockoutDiv);
+
+          function updateLockoutTimer() {
+            const timeLeft = previousEndTime - Date.now();
+            if (timeLeft <= 0) {
+              lockoutDiv.textContent = "Next challenge unlocked! Refresh to continue.";
+              return;
+            }
+            const hours = Math.floor(timeLeft / (1000 * 60 * 60));
+            const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
+            const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
+            lockoutDiv.textContent = `Next challenge unlocks in ${hours}h ${minutes}m ${seconds}s`;
+          }
+
+          updateLockoutTimer();
+          setInterval(updateLockoutTimer, 1000);
+          return;
+        }
+      }
+
       if (currentChallengeCompleted && !isOverdue) {
         // Challenge completed but timer hasn't expired yet
         loadingState.classList.remove("show");
