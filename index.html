@@ -554,6 +554,7 @@
     function showAuth() {
       loadingState.classList.remove("show");
       authContent.classList.remove("hide");
+      document.getElementById("nameGroup").style.display = "none";
     }
 
     function redirectToDashboard() {
@@ -581,6 +582,7 @@
     }
 
     signupBtn.addEventListener("click", async () => {
+      document.getElementById("nameGroup").style.display = "block";
       const nameInput = document.getElementById("name");
       const name = nameInput.value.trim();
       const email = emailInput.value.trim();
@@ -617,6 +619,7 @@
     });
 
     loginBtn.addEventListener("click", async () => {
+      document.getElementById("nameGroup").style.display = "none";
       const email = emailInput.value.trim();
       const password = passwordInput.value.trim();
 
