@@ -1042,6 +1042,7 @@
 
       // Challenge is active — show full dashboard
       const currentChallengeNumber = userData.currentChallenge || 1;
+      let activeChallengeNumber = currentChallengeNumber;
       activeChallenge = challenges.find(ch => ch.id === currentChallengeNumber) || challenges[0];
 
       let programStartDate = new Date();
@@ -1052,6 +1053,31 @@
       let activeChallengeStartDate = new Date();
       if (userData.startTime?.toDate) {
         activeChallengeStartDate = userData.startTime.toDate();
+      }
+
+      // Check for lockout state: if current challenge wasn't completed but previous one was
+      const submissionHistory = Array.isArray(userData.submissionHistory) ? userData.submissionHistory : [];
+      const currentChallengeCompleted = submissionHistory.some(entry => entry.challengeId === currentChallengeNumber);
+      const previousChallengeNumber = currentChallengeNumber - 1;
+      const previousChallengeCompleted = previousChallengeNumber > 0
+        ? submissionHistory.some(entry => entry.challengeId === previousChallengeNumber)
+        : false;
+
+      let isUserLocked = false;
+      let lockedChallengeNumber = currentChallengeNumber;
+
+      if (!currentChallengeCompleted && previousChallengeCompleted && previousChallengeNumber > 0) {
+        // User was advanced but previous challenge's timer hasn't expired
+        const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
+        const previousEndTime = activeChallengeStartDate.getTime() + previousChallenge.duration * 60 * 60 * 1000;
+        const previousIsOverdue = Date.now() > previousEndTime;
+
+        if (!previousIsOverdue) {
+          isUserLocked = true;
+          lockedChallengeNumber = previousChallengeNumber;
+          activeChallenge = previousChallenge;
+          activeChallengeNumber = previousChallengeNumber;
+        }
       }
 
       const todayIndexRaw = getDayDifference(programStartDate, new Date());
@@ -1066,24 +1092,33 @@
       dayCountText.textContent = `Day ${currentDayNumber} of 30`;
       motivationMessage.textContent = getReminderMessage(currentDayNumber);
 
-      if (isOverdue) {
-        const msg = overdueMessages[(currentChallengeNumber - 1) % overdueMessages.length];
+      if (isOverdue && !isUserLocked) {
+        const msg = overdueMessages[(activeChallengeNumber - 1) % overdueMessages.length];
         document.getElementById("overdueMotivatorText").textContent = msg;
         document.getElementById("overdueMotivator").style.display = "block";
       }
 
-      buildWeekView(programStartDate, currentChallengeNumber);
+      buildWeekView(programStartDate, activeChallengeNumber);
       calendarCard.style.display = "block";
 
-      todayFocusText.textContent = getTodayFocus(activeChallenge, isOverdue);
+      todayFocusText.textContent = getTodayFocus(activeChallenge, isOverdue && !isUserLocked);
       focusCard.style.display = "block";
 
       challengePill.textContent = `Challenge ${activeChallenge.id} of ${challenges.length}`;
       challengeTitle.textContent = activeChallenge.title;
       challengeBrief.textContent = activeChallenge.brief;
       durationDisplay.textContent = `${activeChallenge.duration} hrs`;
-      challengeCard.style.display = "block";
 
+      // If user is locked, hide Open Challenge button and only show Hint button
+      if (isUserLocked) {
+        goToChallengeBtn.style.display = "none";
+        hintBtn.textContent = "Hint: What's Next?";
+      } else {
+        goToChallengeBtn.style.display = "block";
+        hintBtn.textContent = "Hint: What's Next?";
+      }
+
+      challengeCard.style.display = "block";
       startChallengeTimer(activeChallengeStartDate, activeChallenge.duration);
     }
 
