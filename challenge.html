@@ -652,7 +652,7 @@
         </div>
 
         <div class="submission-wrap">
-          <h3 class="mini-title">How’d you feel about that task?</h3>
+          <h3 class="mini-title">How'd you feel about that task?</h3>
           <p class="mini-text">Pick one to unlock the next challenge.</p>
 
           <div class="feeling-grid">
@@ -727,11 +727,11 @@
   </nav>
 
   <script type="module">
-    import { initializeApp } from “https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js”;
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-app.js";
     import {
       getAuth,
       onAuthStateChanged
-    } from “https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js”;
+    } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-auth.js";
     import {
       getFirestore,
       doc,
@@ -740,17 +740,17 @@
       increment,
       serverTimestamp,
       arrayUnion
-    } from “https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js”;
-    import { challenges } from “./challenges.js”;
+    } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+    import { challenges } from "./challenges.js";
 
     const firebaseConfig = {
-      apiKey: “AIzaSyDJt-uwfTaIC6WDvg8rlhj4GjpsGOis8TM”,
-      authDomain: “content-challenge-app.firebaseapp.com”,
-      projectId: “content-challenge-app”,
-      storageBucket: “content-challenge-app.firebasestorage.app”,
-      messagingSenderId: “163888513221”,
-      appId: “1:163888513221:web:9646f7d215cf3b0822b0ac”,
-      measurementId: “G-MLVZSXG02E”
+      apiKey: "AIzaSyDJt-uwfTaIC6WDvg8rlhj4GjpsGOis8TM",
+      authDomain: "content-challenge-app.firebaseapp.com",
+      projectId: "content-challenge-app",
+      storageBucket: "content-challenge-app.firebasestorage.app",
+      messagingSenderId: "163888513221",
+      appId: "1:163888513221:web:9646f7d215cf3b0822b0ac",
+      measurementId: "G-MLVZSXG02E"
     };
 
     const app = initializeApp(firebaseConfig);
@@ -903,7 +903,7 @@
       const userSnap = await getDoc(userRef);
 
       if (!userSnap.exists()) {
-        showError("We couldn’t find your challenge data. Go back and create your account again.");
+        showError("We couldn't find your challenge data. Go back and create your account again.");
         return;
       }
 
@@ -930,7 +930,7 @@
       isCurrentChallengeOverdue = isOverdue;
 
       pageSubtitle.textContent = isOverdue
-        ? "You can still complete this challenge. You’re late, not dead."
+        ? "You can still complete this challenge. You're late, not dead."
         : "Finish this challenge before your brain tries to make it more complicated than it is.";
 
       if (isOverdue) {
@@ -995,7 +995,7 @@
         await loadChallenge(currentUser);
       } catch (error) {
         console.error(error);
-        setStatus("Couldn’t complete the challenge.", "error");
+        setStatus("Couldn't complete the challenge.", "error");
       }
     });
 
@@ -1029,7 +1029,7 @@
         }, 700);
       } catch (error) {
         console.error(error);
-        setRestartStatus("Couldn’t restart the challenge.", "error");
+        setRestartStatus("Couldn't restart the challenge.", "error");
       }
     });
 
