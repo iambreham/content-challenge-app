@@ -195,33 +195,28 @@ exports.triggerChallengeEmails = functions.https.onRequest(async (req, res) => {
 });
 
 // HTTP endpoint to reset a user's challenge progress (for testing)
-exports.resetUserChallenge = functions.https.onRequest(async (req, res) => {
-  // Verify token for security
-  if (req.query.token !== process.env.TRIGGER_TOKEN) {
-    res.status(403).send('Unauthorized');
-    return;
+// Usage: call with ?token=TRIGGER_TOKEN to reset authenticated user's challenge
+exports.resetUserChallenge = functions.https.onCall(async (data, context) => {
+  // Require authentication
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be logged in');
   }
 
-  const uid = req.query.uid;
-  if (!uid) {
-    res.status(400).json({ error: 'uid parameter required' });
-    return;
-  }
+  const uid = context.auth.uid;
 
   try {
     const db = admin.firestore();
-    const userRef = admin.firestore().collection('users').doc(uid);
 
     // Delete the challenge fields
-    await admin.firestore().collection('users').doc(uid).update({
+    await db.collection('users').doc(uid).update({
       currentChallenge: admin.firestore.FieldValue.delete(),
       challengeStarted: admin.firestore.FieldValue.delete(),
       startTime: admin.firestore.FieldValue.delete()
     });
 
-    res.json({ success: true, message: `Reset challenge data for user ${uid}` });
+    return { success: true, message: 'Challenge data reset. Refresh the page.' };
   } catch (error) {
     console.error('Error:', error);
-    res.status(500).json({ error: error.message });
+    throw new functions.https.HttpsError('internal', error.message);
   }
 });
