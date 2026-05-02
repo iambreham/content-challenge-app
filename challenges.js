@@ -27,7 +27,7 @@ export const challenges = [
     hint: "After this, your framing gets less static and way more watchable.",
     question: "Are people scrolling because your idea is weak or because your opening is too still?",
     howTo: [
-      "Create a 15\u201330 second video.",
+      "Create a 15\u201360 second video.",
       "In the first 3 seconds:",
       { bullets: ["Move (step in, lean, gesture, hold something up)", "Deliver your hook while moving"] },
       "Do NOT start still."
