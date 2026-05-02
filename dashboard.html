@@ -1241,15 +1241,17 @@
           }
         }
 
-        // START the challenge right now
-        await updateDoc(userRef, {
-          currentChallenge: activeChallengeNumber,
-          challengeStarted: true,
-          startTime: serverTimestamp(),
-          duration: challenges[activeChallengeNumber - 1]?.duration || 24
-        });
+        // Only START the challenge if it hasn't been started yet
+        if (!userData.challengeStarted) {
+          await updateDoc(userRef, {
+            currentChallenge: activeChallengeNumber,
+            challengeStarted: true,
+            startTime: serverTimestamp(),
+            duration: challenges[activeChallengeNumber - 1]?.duration || 24
+          });
+        }
 
-        // Navigate to challenge - it will show content immediately
+        // Navigate to challenge
         window.location.href = "./challenge.html";
       } catch (error) {
         console.error("Error:", error);
