@@ -1131,17 +1131,30 @@
       challengeBrief.textContent = activeChallenge.brief;
       durationDisplay.textContent = `${activeChallenge.duration} hrs`;
 
+      // Check if this challenge has actually been started (is it in currentChallenge?)
+      const currentChallengeFromDb = userData.currentChallenge || 1;
+      const isChallengeStarted = currentChallengeFromDb === activeChallengeNumber;
+
       // If user is locked, hide Open Challenge button and only show Hint button
       if (isUserLocked) {
         goToChallengeBtn.style.display = "none";
         hintBtn.textContent = "Hint: What's Next?";
+      } else if (!isChallengeStarted) {
+        // Challenge is unlocked but not started yet - show Start button
+        goToChallengeBtn.textContent = `Start Challenge ${activeChallengeNumber}`;
+        goToChallengeBtn.style.display = "block";
+        hintBtn.textContent = "Hint: What's Next?";
       } else {
+        // Challenge is in progress
+        goToChallengeBtn.textContent = "Open Challenge";
         goToChallengeBtn.style.display = "block";
         hintBtn.textContent = "Hint: What's Next?";
       }
 
       challengeCard.style.display = "block";
-      startChallengeTimer(challengeTimerStart, activeChallenge.duration);
+      if (isChallengeStarted) {
+        startChallengeTimer(challengeTimerStart, activeChallenge.duration);
+      }
     }
 
     const LAUNCH_DATE = new Date("2026-05-01T00:00:00");
