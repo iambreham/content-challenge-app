@@ -953,7 +953,7 @@
         const isUnlocked = Date.now() >= unlockTime;
 
         if (!isUnlocked) {
-          // Show lockout message with countdown
+          // Show lockout message with countdown until unlock time
           loadingState.classList.remove("show");
           challengeContent.style.display = "none";
 
@@ -1001,6 +1001,39 @@
 
           updateLockoutTimer();
           setInterval(updateLockoutTimer, 1000);
+          return;
+        } else {
+          // Previous challenge is unlocked - show "Start Challenge" button, don't load the challenge yet
+          loadingState.classList.remove("show");
+          challengeContent.style.display = "none";
+
+          pageSubtitle.textContent = "Ready for the next challenge?";
+          challengePill.textContent = `Challenge ${nextChallengeNumber} of ${challenges.length}`;
+          challengeTitle.textContent = currentChallenge.title;
+
+          const readyDiv = document.createElement("div");
+          readyDiv.style.cssText = "text-align: center; padding: 40px;";
+          readyDiv.innerHTML = `
+            <button id="startNextChallengeBtn" class="primary-btn" type="button" style="padding: 16px 32px; margin: 0 auto;">Start Challenge ${nextChallengeNumber}</button>
+          `;
+          document.querySelector(".app").appendChild(readyDiv);
+
+          const startBtn = document.getElementById("startNextChallengeBtn");
+          startBtn.addEventListener("click", async () => {
+            startBtn.disabled = true;
+            try {
+              const nextChallenge = challenges.find(ch => ch.id === nextChallengeNumber);
+              await updateDoc(doc(db, "users", currentUser.uid), {
+                currentChallenge: nextChallengeNumber,
+                startTime: serverTimestamp(),
+                duration: nextChallenge.duration
+              });
+              await loadChallenge(currentUser);
+            } catch (error) {
+              console.error(error);
+              startBtn.disabled = false;
+            }
+          });
           return;
         }
       }
