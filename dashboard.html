@@ -1132,8 +1132,14 @@
       durationDisplay.textContent = `${activeChallenge.duration} hrs`;
 
       // Check if this challenge has actually been started (is it in currentChallenge?)
+      // BUT: if the previous challenge's timer hasn't expired yet, the challenge isn't truly started
       const currentChallengeFromDb = userData.currentChallenge || 1;
-      const isCurrentChallengeActive = currentChallengeFromDb === activeChallengeNumber;
+      let isCurrentChallengeActive = currentChallengeFromDb === activeChallengeNumber;
+
+      // If user is locked, the challenge isn't truly active yet
+      if (isUserLocked) {
+        isCurrentChallengeActive = false;
+      }
 
       // If user is locked, hide Open Challenge button and only show Hint button
       if (isUserLocked) {
