@@ -1131,31 +1131,19 @@
       challengeBrief.textContent = activeChallenge.brief;
       durationDisplay.textContent = `${activeChallenge.duration} hrs`;
 
-      // Match challenge page logic exactly:
-      // If locked: show hint button only, hide timer, hide "Open Challenge" button
-      // If unlocked but not in currentChallenge: show "Start Challenge" button, hide timer
-      // If unlocked and in currentChallenge: show "Open Challenge" button, show timer
-      const currentChallengeFromDb = userData.currentChallenge || 1;
-      const isChallengeInCurrentChallenge = currentChallengeFromDb === activeChallengeNumber;
+      // Simple logic: if locked, show hint only. Otherwise show "Start Challenge X" button
       const timerBox = document.getElementById("timerBox");
 
       if (isUserLocked) {
-        // Locked on previous challenge
+        // Locked - can't access this challenge yet
         goToChallengeBtn.style.display = "none";
         timerBox.style.display = "none";
         hintBtn.textContent = "Hint: What's Next?";
-      } else if (!isChallengeInCurrentChallenge) {
-        // Unlocked but not started - show Start button
+      } else {
+        // Unlocked - ready to start
         goToChallengeBtn.textContent = `Start Challenge ${activeChallengeNumber}`;
         goToChallengeBtn.style.display = "block";
         timerBox.style.display = "none";
-        hintBtn.textContent = "Hint: What's Next?";
-      } else {
-        // Started - show Open button and timer
-        goToChallengeBtn.textContent = "Open Challenge";
-        goToChallengeBtn.style.display = "block";
-        timerBox.style.display = "block";
-        startChallengeTimer(challengeTimerStart, activeChallenge.duration);
         hintBtn.textContent = "Hint: What's Next?";
       }
 
