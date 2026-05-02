@@ -1041,50 +1041,56 @@
       }
 
       // Challenge is active — show full dashboard
-      const currentChallengeNumber = userData.currentChallenge || 1;
-      let activeChallengeNumber = currentChallengeNumber;
-      activeChallenge = challenges.find(ch => ch.id === currentChallengeNumber) || challenges[0];
+      const submissionHistory = Array.isArray(userData.submissionHistory) ? userData.submissionHistory : [];
+
+      // Determine which challenge to show: the lowest ID not yet completed
+      let activeChallengeNumber = 1;
+      for (let i = 1; i <= challenges.length; i++) {
+        const isCompleted = submissionHistory.some(entry => entry.challengeId === i);
+        if (!isCompleted) {
+          activeChallengeNumber = i;
+          break;
+        }
+      }
+
+      activeChallenge = challenges.find(ch => ch.id === activeChallengeNumber) || challenges[0];
 
       let programStartDate = new Date();
       if (userData.programStartDate?.toDate) {
         programStartDate = userData.programStartDate.toDate();
       }
 
-      let activeChallengeStartDate = new Date();
-      if (userData.startTime?.toDate) {
-        activeChallengeStartDate = userData.startTime.toDate();
+      // Check if user is locked (previous challenge's unlock time hasn't passed yet)
+      let isUserLocked = false;
+      if (activeChallengeNumber > 1) {
+        const previousChallengeNumber = activeChallengeNumber - 1;
+        const previousEntry = submissionHistory.find(entry => entry.challengeId === previousChallengeNumber);
+        if (previousEntry) {
+          const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
+          const completedAt = new Date(previousEntry.completedAt).getTime();
+          const unlockTime = completedAt + (previousChallenge.duration * 60 * 60 * 1000);
+          isUserLocked = Date.now() < unlockTime;
+        }
       }
 
-      // Check for lockout state: if current challenge wasn't completed but previous one was
-      const submissionHistory = Array.isArray(userData.submissionHistory) ? userData.submissionHistory : [];
-      const currentChallengeCompleted = submissionHistory.some(entry => entry.challengeId === currentChallengeNumber);
-      const previousChallengeNumber = currentChallengeNumber - 1;
-      const previousChallengeCompleted = previousChallengeNumber > 0
-        ? submissionHistory.some(entry => entry.challengeId === previousChallengeNumber)
-        : false;
-
-      let isUserLocked = false;
-      let lockedChallengeNumber = currentChallengeNumber;
-
-      if (!currentChallengeCompleted && previousChallengeCompleted && previousChallengeNumber > 0) {
-        // User was advanced but previous challenge's timer hasn't expired
-        const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
-        const previousEndTime = activeChallengeStartDate.getTime() + previousChallenge.duration * 60 * 60 * 1000;
-        const previousIsOverdue = Date.now() > previousEndTime;
-
-        if (!previousIsOverdue) {
-          isUserLocked = true;
-          lockedChallengeNumber = previousChallengeNumber;
-          activeChallenge = previousChallenge;
-          activeChallengeNumber = previousChallengeNumber;
-        }
+      // Calculate timer based on when this challenge's timer started
+      let challengeTimerStart;
+      if (activeChallengeNumber === 1) {
+        challengeTimerStart = programStartDate;
+      } else {
+        const previousEntry = submissionHistory.find(entry => entry.challengeId === activeChallengeNumber - 1);
+        const previousChallenge = challenges.find(ch => ch.id === activeChallengeNumber - 1);
+        const previousCompletedAt = new Date(previousEntry.completedAt).getTime();
+        const previousDurationMs = previousChallenge.duration * 60 * 60 * 1000;
+        const whenCouldStart = previousCompletedAt + previousDurationMs;
+        challengeTimerStart = new Date(whenCouldStart);
       }
 
       const todayIndexRaw = getDayDifference(programStartDate, new Date());
       const todayIndex = Math.max(0, Math.min(todayIndexRaw, 29));
       const currentDayNumber = todayIndex + 1;
 
-      const endTime = activeChallengeStartDate.getTime() + activeChallenge.duration * 60 * 60 * 1000;
+      const endTime = challengeTimerStart.getTime() + activeChallenge.duration * 60 * 60 * 1000;
       const isOverdue = Date.now() > endTime;
 
       welcomeText.textContent = "You\u2019re here. Good.";

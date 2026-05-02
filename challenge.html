@@ -917,43 +917,43 @@
         document.getElementById("notStartedCard").style.display = "block";
         return;
       }
-      const currentChallengeNumber = currentUserData.currentChallenge || 1;
-      currentChallenge = challenges.find(ch => ch.id === currentChallengeNumber) || challenges[0];
 
-      let challengeStartDate = new Date();
-      if (currentUserData.startTime?.toDate) {
-        challengeStartDate = currentUserData.startTime.toDate();
+      const submissionHistory = Array.isArray(currentUserData.submissionHistory) ? currentUserData.submissionHistory : [];
+
+      // Determine which challenge to show: the lowest ID not yet completed
+      let nextChallengeNumber = 1;
+      for (let i = 1; i <= challenges.length; i++) {
+        const isCompleted = submissionHistory.some(entry => entry.challengeId === i);
+        if (!isCompleted) {
+          nextChallengeNumber = i;
+          break;
+        }
       }
 
-      const endTime = challengeStartDate.getTime() + currentChallenge.duration * 60 * 60 * 1000;
-      const isOverdue = Date.now() > endTime;
-      isCurrentChallengeOverdue = isOverdue;
+      currentChallenge = challenges.find(ch => ch.id === nextChallengeNumber) || challenges[0];
 
-      // Check if current challenge is already completed
-      const submissionHistory = Array.isArray(currentUserData.submissionHistory) ? currentUserData.submissionHistory : [];
-      const currentChallengeCompleted = submissionHistory.some(entry => entry.challengeId === currentChallengeNumber);
+      // Check if they can access this challenge (previous challenge's timer must be expired)
+      if (nextChallengeNumber > 1) {
+        const previousChallengeNumber = nextChallengeNumber - 1;
+        const previousChallengeEntry = submissionHistory.find(entry => entry.challengeId === previousChallengeNumber);
 
-      // Check if previous challenge was completed but current one wasn't (user was incorrectly advanced)
-      const previousChallengeNumber = currentChallengeNumber - 1;
-      const previousChallengeCompleted = previousChallengeNumber > 0
-        ? submissionHistory.some(entry => entry.challengeId === previousChallengeNumber)
-        : false;
+        if (!previousChallengeEntry) {
+          showError("Something went wrong with your challenge progression.");
+          return;
+        }
 
-      if (!currentChallengeCompleted && previousChallengeCompleted && previousChallengeNumber > 0) {
-        // User was advanced to next challenge but previous one's timer hasn't expired yet
-        // Find the previous challenge's start time and duration
         const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
-        const previousEndTime = challengeStartDate.getTime() + previousChallenge.duration * 60 * 60 * 1000;
-        const previousIsOverdue = Date.now() > previousEndTime;
+        const completedAt = new Date(previousChallengeEntry.completedAt).getTime();
+        const unlockTime = completedAt + (previousChallenge.duration * 60 * 60 * 1000);
+        const isUnlocked = Date.now() >= unlockTime;
 
-        if (!previousIsOverdue) {
-          // Lock user back on previous challenge
-          currentChallenge = previousChallenge;
+        if (!isUnlocked) {
+          // Show lockout message
           loadingState.classList.remove("show");
           challengeContent.style.display = "none";
 
           pageSubtitle.textContent = "Challenge completed! Unlock the next one when the timer runs out.";
-          challengePill.textContent = `Challenge ${previousChallenge.id} of ${challenges.length}`;
+          challengePill.textContent = `Challenge ${previousChallengeNumber} of ${challenges.length}`;
           challengeTitle.textContent = previousChallenge.title;
 
           const lockoutDiv = document.createElement("div");
@@ -962,7 +962,7 @@
           document.querySelector(".app").appendChild(lockoutDiv);
 
           function updateLockoutTimer() {
-            const timeLeft = previousEndTime - Date.now();
+            const timeLeft = unlockTime - Date.now();
             if (timeLeft <= 0) {
               lockoutDiv.textContent = "Next challenge unlocked! Refresh to continue.";
               return;
@@ -979,67 +979,28 @@
         }
       }
 
-      if (currentChallengeCompleted && !isOverdue) {
-        // Challenge completed but timer hasn't expired yet
-        loadingState.classList.remove("show");
-        challengeContent.style.display = "none";
+      // User can access this challenge. Calculate the timer start time.
+      let challengeTimerStart;
 
-        // Show locked message with countdown
-        pageSubtitle.textContent = "Challenge completed! Unlock the next one when the timer runs out.";
-        challengePill.textContent = `Challenge ${currentChallenge.id} of ${challenges.length}`;
-        challengeTitle.textContent = currentChallenge.title;
-
-        // Show countdown timer
-        const lockoutDiv = document.createElement("div");
-        lockoutDiv.style.cssText = "text-align: center; padding: 40px; font-size: 18px; color: #4b4b4b;";
-        lockoutDiv.id = "lockoutTimer";
-        document.querySelector(".app").appendChild(lockoutDiv);
-
-        function updateLockoutTimer() {
-          const timeLeft = endTime - Date.now();
-          if (timeLeft <= 0) {
-            lockoutDiv.textContent = "Next challenge unlocked! Refresh to continue.";
-            return;
-          }
-          const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-          const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-          const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-          lockoutDiv.textContent = `Next challenge unlocks in ${hours}h ${minutes}m ${seconds}s`;
+      if (nextChallengeNumber === 1) {
+        // Challenge 1: timer starts from programStartDate
+        challengeTimerStart = new Date();
+        if (currentUserData.programStartDate?.toDate) {
+          challengeTimerStart = currentUserData.programStartDate.toDate();
         }
-
-        updateLockoutTimer();
-        setInterval(updateLockoutTimer, 1000);
-        return;
+      } else {
+        // Challenge N: timer starts from when previous challenge was completed + previous duration
+        const previousEntry = submissionHistory.find(entry => entry.challengeId === nextChallengeNumber - 1);
+        const previousChallenge = challenges.find(ch => ch.id === nextChallengeNumber - 1);
+        const previousCompletedAt = new Date(previousEntry.completedAt).getTime();
+        const previousDurationMs = previousChallenge.duration * 60 * 60 * 1000;
+        const whenCouldStart = previousCompletedAt + previousDurationMs;
+        challengeTimerStart = new Date(whenCouldStart);
       }
 
-      if (currentChallengeCompleted && isOverdue && currentChallengeNumber < challenges.length) {
-        // Challenge completed and timer expired - show "Start Next Challenge" button
-        loadingState.classList.remove("show");
-        challengeContent.style.display = "none";
-
-        pageSubtitle.textContent = "Challenge completed! Ready for the next one?";
-        challengePill.textContent = `Challenge ${currentChallenge.id} of ${challenges.length}`;
-        challengeTitle.textContent = currentChallenge.title;
-
-        const nextBtn = document.createElement("button");
-        nextBtn.textContent = "Start Next Challenge";
-        nextBtn.className = "primary-btn";
-        nextBtn.style.cssText = "margin-top: 20px; padding: 16px 32px;";
-        nextBtn.addEventListener("click", async () => {
-          const nextChallengeNumber = currentChallengeNumber + 1;
-          const nextChallenge = challenges.find(ch => ch.id === nextChallengeNumber);
-          await updateDoc(doc(db, "users", currentUser.uid), {
-            currentChallenge: nextChallengeNumber,
-            startTime: serverTimestamp(),
-            duration: nextChallenge.duration
-          });
-          await loadChallenge(currentUser);
-        });
-
-        const contentDiv = document.querySelector(".app");
-        contentDiv.appendChild(nextBtn);
-        return;
-      }
+      const endTime = challengeTimerStart.getTime() + currentChallenge.duration * 60 * 60 * 1000;
+      const isOverdue = Date.now() > endTime;
+      isCurrentChallengeOverdue = isOverdue;
 
       pageSubtitle.textContent = isOverdue
         ? "You can still complete this challenge. You're late, not dead."
