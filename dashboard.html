@@ -1139,8 +1139,14 @@
         goToChallengeBtn.style.display = "none";
         timerBox.style.display = "none";
         hintBtn.textContent = "Hint: What's Next?";
+      } else if (userData.currentChallenge === activeChallengeNumber && userData.challengeStarted) {
+        // Already started this challenge - show continue button
+        goToChallengeBtn.textContent = `Continue Challenge ${activeChallengeNumber}`;
+        goToChallengeBtn.style.display = "block";
+        timerBox.style.display = "none";
+        hintBtn.textContent = "Hint: What's Next?";
       } else {
-        // Unlocked - ready to start
+        // Unlocked and not started - ready to start
         goToChallengeBtn.textContent = `Start Challenge ${activeChallengeNumber}`;
         goToChallengeBtn.style.display = "block";
         timerBox.style.display = "none";
