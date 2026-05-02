@@ -1063,7 +1063,11 @@
       // User can access this challenge. Calculate the timer start time.
       let challengeTimerStart;
 
-      if (nextChallengeNumber === 1) {
+      // If user just started this challenge, use their actual start time
+      if (currentUserData.currentChallenge === nextChallengeNumber && currentUserData.startTime) {
+        challengeTimerStart = currentUserData.startTime.toDate ? currentUserData.startTime.toDate() : new Date(currentUserData.startTime);
+      }
+      else if (nextChallengeNumber === 1) {
         // Challenge 1: timer starts from programStartDate
         challengeTimerStart = new Date();
         if (currentUserData.programStartDate?.toDate) {
