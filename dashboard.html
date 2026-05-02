@@ -1133,13 +1133,13 @@
 
       // Check if this challenge has actually been started (is it in currentChallenge?)
       const currentChallengeFromDb = userData.currentChallenge || 1;
-      const isChallengeStarted = currentChallengeFromDb === activeChallengeNumber;
+      const isCurrentChallengeActive = currentChallengeFromDb === activeChallengeNumber;
 
       // If user is locked, hide Open Challenge button and only show Hint button
       if (isUserLocked) {
         goToChallengeBtn.style.display = "none";
         hintBtn.textContent = "Hint: What's Next?";
-      } else if (!isChallengeStarted) {
+      } else if (!isCurrentChallengeActive) {
         // Challenge is unlocked but not started yet - show Start button
         goToChallengeBtn.textContent = `Start Challenge ${activeChallengeNumber}`;
         goToChallengeBtn.style.display = "block";
@@ -1152,7 +1152,7 @@
       }
 
       challengeCard.style.display = "block";
-      if (isChallengeStarted) {
+      if (isCurrentChallengeActive) {
         startChallengeTimer(challengeTimerStart, activeChallenge.duration);
       }
     }
