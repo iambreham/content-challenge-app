@@ -1062,6 +1062,7 @@
 
       // Check if user is locked (previous challenge's unlock time hasn't passed yet)
       let isUserLocked = false;
+      let actuallyActiveChallengeNumber = activeChallengeNumber;
       if (activeChallengeNumber > 1) {
         const previousChallengeNumber = activeChallengeNumber - 1;
         const previousEntry = submissionHistory.find(entry => entry.challengeId === previousChallengeNumber);
@@ -1072,6 +1073,9 @@
             const completedAt = completedAtDate.getTime();
             const unlockTime = completedAt + (previousChallenge.duration * 60 * 60 * 1000);
             isUserLocked = Date.now() < unlockTime;
+            if (isUserLocked) {
+              actuallyActiveChallengeNumber = previousChallengeNumber;
+            }
           }
         }
       }
@@ -1116,7 +1120,7 @@
         document.getElementById("overdueMotivator").style.display = "block";
       }
 
-      buildWeekView(programStartDate, activeChallengeNumber);
+      buildWeekView(programStartDate, actuallyActiveChallengeNumber);
       calendarCard.style.display = "block";
 
       todayFocusText.textContent = getTodayFocus(activeChallenge, isOverdue && !isUserLocked);
