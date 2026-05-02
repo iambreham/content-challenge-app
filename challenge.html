@@ -936,12 +936,9 @@
 
       currentChallenge = challenges.find(ch => ch.id === nextChallengeNumber) || challenges[0];
 
-      // If user is currently working on this challenge, skip the unlock check and show the challenge
-      if (currentUserData.currentChallenge === nextChallengeNumber && currentUserData.startTime) {
-        // User is already in this challenge, proceed to show it
-      }
       // Check if they can access this challenge (previous challenge's timer must be expired)
-      else if (nextChallengeNumber > 1) {
+      // BUT: skip this check if the user has already started this challenge
+      if (nextChallengeNumber > 1 && !currentUserData.challengeStarted) {
         const previousChallengeNumber = nextChallengeNumber - 1;
         const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
 
