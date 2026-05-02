@@ -984,7 +984,10 @@
                       startTime: serverTimestamp(),
                       duration: nextChallenge.duration
                     });
-                    await loadChallenge(currentUser);
+                    // Reload the page to properly display the challenge
+                    setTimeout(() => {
+                      window.location.reload();
+                    }, 500);
                   } catch (error) {
                     console.error(error);
                     startBtn.disabled = false;
@@ -1028,7 +1031,10 @@
                 startTime: serverTimestamp(),
                 duration: nextChallenge.duration
               });
-              await loadChallenge(currentUser);
+              // Reload the page to properly display the challenge
+              setTimeout(() => {
+                window.location.reload();
+              }, 500);
             } catch (error) {
               console.error(error);
               startBtn.disabled = false;
