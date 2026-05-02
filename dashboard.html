@@ -1215,42 +1215,8 @@
       window.location.href = "./index.html";
     });
 
-    goToChallengeBtn.addEventListener("click", async () => {
-      if (!currentUser) return;
-
-      goToChallengeBtn.disabled = true;
-
-      try {
-        const userRef = doc(db, "users", currentUser.uid);
-
-        // Get the current active challenge number
-        const userDoc = await getDoc(userRef);
-        const userData = userDoc.data() || {};
-        const submissionHistory = Array.isArray(userData.submissionHistory) ? userData.submissionHistory : [];
-
-        let activeChallengeNumber = 1;
-        for (let i = 1; i <= challenges.length; i++) {
-          const isCompleted = submissionHistory.some(entry => entry.challengeId === i);
-          if (!isCompleted) {
-            activeChallengeNumber = i;
-            break;
-          }
-        }
-
-        // Set the challenge as the current one and mark it as started
-        await updateDoc(userRef, {
-          currentChallenge: activeChallengeNumber,
-          challengeStarted: true,
-          startTime: serverTimestamp(),
-          duration: challenges[activeChallengeNumber - 1]?.duration || 24
-        });
-
-        window.location.href = "./challenge.html";
-      } catch (error) {
-        console.error("Error starting challenge:", error);
-        goToChallengeBtn.disabled = false;
-        alert("Error starting challenge: " + error.message);
-      }
+    goToChallengeBtn.addEventListener("click", () => {
+      window.location.href = "./challenge.html";
     });
 
     hintBtn.addEventListener("click", () => {
