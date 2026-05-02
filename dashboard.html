@@ -1152,10 +1152,16 @@
         hintBtn.textContent = "Hint: What's Next?";
       }
 
-      challengeCard.style.display = "block";
+      // Show or hide timer based on whether challenge is active
+      const timerBox = document.getElementById("timerBox");
       if (isCurrentChallengeActive) {
+        timerBox.style.display = "block";
         startChallengeTimer(challengeTimerStart, activeChallenge.duration);
+      } else {
+        timerBox.style.display = "none";
       }
+
+      challengeCard.style.display = "block";
     }
 
     const LAUNCH_DATE = new Date("2026-05-01T00:00:00");
