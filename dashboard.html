@@ -1067,9 +1067,12 @@
         const previousEntry = submissionHistory.find(entry => entry.challengeId === previousChallengeNumber);
         if (previousEntry) {
           const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
-          const completedAt = new Date(previousEntry.completedAt).getTime();
-          const unlockTime = completedAt + (previousChallenge.duration * 60 * 60 * 1000);
-          isUserLocked = Date.now() < unlockTime;
+          const completedAtDate = new Date(previousEntry.completedAt);
+          if (!isNaN(completedAtDate.getTime())) {
+            const completedAt = completedAtDate.getTime();
+            const unlockTime = completedAt + (previousChallenge.duration * 60 * 60 * 1000);
+            isUserLocked = Date.now() < unlockTime;
+          }
         }
       }
 
@@ -1079,8 +1082,17 @@
         challengeTimerStart = programStartDate;
       } else {
         const previousEntry = submissionHistory.find(entry => entry.challengeId === activeChallengeNumber - 1);
+        if (!previousEntry) {
+          showError("Something went wrong loading your dashboard.");
+          return;
+        }
         const previousChallenge = challenges.find(ch => ch.id === activeChallengeNumber - 1);
-        const previousCompletedAt = new Date(previousEntry.completedAt).getTime();
+        const previousCompletedAtDate = new Date(previousEntry.completedAt);
+        if (isNaN(previousCompletedAtDate.getTime())) {
+          showError("Your completion data is corrupted. Please contact support.");
+          return;
+        }
+        const previousCompletedAt = previousCompletedAtDate.getTime();
         const previousDurationMs = previousChallenge.duration * 60 * 60 * 1000;
         const whenCouldStart = previousCompletedAt + previousDurationMs;
         challengeTimerStart = new Date(whenCouldStart);

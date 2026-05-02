@@ -943,7 +943,12 @@
         }
 
         const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
-        const completedAt = new Date(previousChallengeEntry.completedAt).getTime();
+        const completedAtDate = new Date(previousChallengeEntry.completedAt);
+        if (isNaN(completedAtDate.getTime())) {
+          showError("Your completion data is corrupted. Please contact support.");
+          return;
+        }
+        const completedAt = completedAtDate.getTime();
         const unlockTime = completedAt + (previousChallenge.duration * 60 * 60 * 1000);
         const isUnlocked = Date.now() >= unlockTime;
 
@@ -991,8 +996,17 @@
       } else {
         // Challenge N: timer starts from when previous challenge was completed + previous duration
         const previousEntry = submissionHistory.find(entry => entry.challengeId === nextChallengeNumber - 1);
+        if (!previousEntry) {
+          showError("Something went wrong with your challenge data.");
+          return;
+        }
         const previousChallenge = challenges.find(ch => ch.id === nextChallengeNumber - 1);
-        const previousCompletedAt = new Date(previousEntry.completedAt).getTime();
+        const previousCompletedAtDate = new Date(previousEntry.completedAt);
+        if (isNaN(previousCompletedAtDate.getTime())) {
+          showError("Your completion data is corrupted. Please contact support.");
+          return;
+        }
+        const previousCompletedAt = previousCompletedAtDate.getTime();
         const previousDurationMs = previousChallenge.duration * 60 * 60 * 1000;
         const whenCouldStart = previousCompletedAt + previousDurationMs;
         challengeTimerStart = new Date(whenCouldStart);
@@ -1007,7 +1021,7 @@
         : "Finish this challenge before your brain tries to make it more complicated than it is.";
 
       if (isOverdue) {
-        const msg = overdueMessages[(currentChallengeNumber - 1) % overdueMessages.length];
+        const msg = overdueMessages[(nextChallengeNumber - 1) % overdueMessages.length];
         document.getElementById("overdueMotivatorText").textContent = msg;
         document.getElementById("overdueMotivator").style.display = "block";
       }
@@ -1022,7 +1036,7 @@
       document.querySelectorAll(".feeling-btn").forEach(btn => btn.classList.remove("selected"));
 
       renderChallengeGuide(currentChallenge, isOverdue);
-      startChallengeTimer(challengeStartDate, currentChallenge.duration);
+      startChallengeTimer(challengeTimerStart, currentChallenge.duration);
 
       loadingState.classList.remove("show");
       errorState.classList.remove("show");
