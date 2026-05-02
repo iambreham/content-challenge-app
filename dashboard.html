@@ -1215,41 +1215,8 @@
       window.location.href = "./index.html";
     });
 
-    goToChallengeBtn.addEventListener("click", async () => {
-      if (!currentUser) return;
-      goToChallengeBtn.disabled = true;
-
-      try {
-        // Get the active challenge number
-        const userRef = doc(db, "users", currentUser.uid);
-        const userDoc = await getDoc(userRef);
-        const userData = userDoc.data() || {};
-        const submissionHistory = Array.isArray(userData.submissionHistory) ? userData.submissionHistory : [];
-
-        let activeChallengeNumber = 1;
-        for (let i = 1; i <= challenges.length; i++) {
-          const isCompleted = submissionHistory.some(entry => entry.challengeId === i);
-          if (!isCompleted) {
-            activeChallengeNumber = i;
-            break;
-          }
-        }
-
-        // START the challenge in Firebase
-        await updateDoc(userRef, {
-          currentChallenge: activeChallengeNumber,
-          challengeStarted: true,
-          startTime: serverTimestamp(),
-          duration: challenges[activeChallengeNumber - 1]?.duration || 24
-        });
-
-        // Now go to challenge page - it will show content immediately since challengeStarted is true
-        window.location.href = "./challenge.html";
-      } catch (error) {
-        console.error("Error starting challenge:", error);
-        goToChallengeBtn.disabled = false;
-        alert("Error: " + error.message);
-      }
+    goToChallengeBtn.addEventListener("click", () => {
+      window.location.href = "./challenge.html";
     });
 
     hintBtn.addEventListener("click", () => {
