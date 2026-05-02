@@ -83,20 +83,32 @@ exports.sendChallengeNotifications = functions.pubsub
           // Challenge just unlocked! Send email
           const nextChallengeNumber = lastProgress.challengeId + 1;
 
+          // Get the next challenge's duration (hardcoded for now - update if challenge list changes)
+          const challengeDurations = {
+            1: 24,
+            2: 48,
+            3: 24,
+            4: 48,
+            5: 24,
+            // Add more as needed
+          };
+          const nextChallengeDuration = challengeDurations[nextChallengeNumber] || 24;
+
           const msg = {
             to: user.email,
             from: process.env.SENDGRID_FROM_EMAIL || 'noreply@mycreativehq.com',
-            subject: `🚀 Your next challenge is ready! Challenge ${nextChallengeNumber} unlocked`,
+            subject: `🚀 Challenge ${nextChallengeNumber} is ready! (${nextChallengeDuration}-hour challenge)`,
             html: `
               <h2>Welcome back, ${user.displayName || 'Creator'}!</h2>
-              <p>Great news! Your next challenge is now available.</p>
-              <p><strong>Challenge ${nextChallengeNumber}</strong> is ready for you to start.</p>
+              <p>Great news! <strong>Challenge ${nextChallengeNumber}</strong> is now unlocked and ready for you to start.</p>
+              <p>This is a <strong>${nextChallengeDuration}-hour challenge</strong> — you have ${nextChallengeDuration} hours to complete it once you start.</p>
               <p>
-                <a href="https://content-challenge-app.web.app/challenge.html?id=${nextChallengeNumber}"
-                   style="background-color: #FF6B35; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                  Start Challenge ${nextChallengeNumber}
+                <a href="https://content-challenge-app.web.app/challenge.html"
+                   style="background-color: #FF6B35; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
+                  Start Challenge ${nextChallengeNumber} Now
                 </a>
               </p>
+              <p style="margin-top: 20px; color: #666; font-size: 14px;">Once you click start, your ${nextChallengeDuration}-hour timer begins. You can submit anytime during the window.</p>
               <p>Keep the momentum going! 💪</p>
               <p>— MyCreativeHQ</p>
             `,
