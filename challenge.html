@@ -953,7 +953,7 @@
         const isUnlocked = Date.now() >= unlockTime;
 
         if (!isUnlocked) {
-          // Show lockout message
+          // Show lockout message with countdown
           loadingState.classList.remove("show");
           challengeContent.style.display = "none";
 
@@ -969,7 +969,28 @@
           function updateLockoutTimer() {
             const timeLeft = unlockTime - Date.now();
             if (timeLeft <= 0) {
-              lockoutDiv.textContent = "Next challenge unlocked! Refresh to continue.";
+              lockoutDiv.innerHTML = `
+                <p style="margin: 0 0 20px; font-size: 20px; font-weight: 800; color: var(--ink);">Challenge ${nextChallengeNumber} is ready!</p>
+                <button id="startNextChallengeBtn" class="primary-btn" type="button" style="padding: 16px 32px; margin: 0 auto;">Start Challenge ${nextChallengeNumber}</button>
+              `;
+              const startBtn = document.getElementById("startNextChallengeBtn");
+              if (startBtn && !startBtn.onclick) {
+                startBtn.addEventListener("click", async () => {
+                  startBtn.disabled = true;
+                  try {
+                    const nextChallenge = challenges.find(ch => ch.id === nextChallengeNumber);
+                    await updateDoc(doc(db, "users", currentUser.uid), {
+                      currentChallenge: nextChallengeNumber,
+                      startTime: serverTimestamp(),
+                      duration: nextChallenge.duration
+                    });
+                    await loadChallenge(currentUser);
+                  } catch (error) {
+                    console.error(error);
+                    startBtn.disabled = false;
+                  }
+                });
+              }
               return;
             }
             const hours = Math.floor(timeLeft / (1000 * 60 * 60));
