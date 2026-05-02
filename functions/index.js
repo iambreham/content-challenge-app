@@ -103,7 +103,7 @@ exports.sendChallengeNotifications = functions.pubsub
               <p>Great news! <strong>Challenge ${nextChallengeNumber}</strong> is now unlocked and ready for you to start.</p>
               <p>This is a <strong>${nextChallengeDuration}-hour challenge</strong> — you have ${nextChallengeDuration} hours to complete it once you start.</p>
               <p>
-                <a href="https://content-challenge-app.web.app/challenge.html"
+                <a href="https://creativehq-challenge.netlify.app/challenge.html"
                    style="background-color: #FF6B35; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
                   Start Challenge ${nextChallengeNumber} Now
                 </a>
@@ -180,7 +180,7 @@ exports.triggerChallengeEmails = functions.https.onRequest(async (req, res) => {
             <p>Great news! Your next challenge is now available.</p>
             <p><strong>Challenge ${nextChallengeNumber}</strong> is ready for you to start.</p>
             <p>
-              <a href="https://content-challenge-app.web.app/challenge.html?id=${nextChallengeNumber}"
+              <a href="https://creativehq-challenge.netlify.app/challenge.html"
                  style="background-color: #FF6B35; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
                 Start Challenge ${nextChallengeNumber}
               </a>
