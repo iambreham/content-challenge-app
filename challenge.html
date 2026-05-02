@@ -939,21 +939,25 @@
       // Check if they can access this challenge (previous challenge's timer must be expired)
       if (nextChallengeNumber > 1) {
         const previousChallengeNumber = nextChallengeNumber - 1;
-        const previousChallengeEntry = submissionHistory.find(entry => entry.challengeId === previousChallengeNumber);
-
-        if (!previousChallengeEntry) {
-          showError("Something went wrong with your challenge progression.");
-          return;
-        }
-
         const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
-        const completedAtDate = new Date(previousChallengeEntry.completedAt);
-        if (isNaN(completedAtDate.getTime())) {
-          showError("Your completion data is corrupted. Please contact support.");
-          return;
+
+        // Calculate unlock time from startTime + duration
+        let unlockTime;
+        if (currentUserData.startTime) {
+          const startTime = currentUserData.startTime.toDate ? currentUserData.startTime.toDate() : new Date(currentUserData.startTime);
+          const durationMs = (currentUserData.duration || previousChallenge.duration) * 60 * 60 * 1000;
+          unlockTime = startTime.getTime() + durationMs;
+        } else {
+          // Fallback to completion history if startTime doesn't exist
+          const previousChallengeEntry = submissionHistory.find(entry => entry.challengeId === previousChallengeNumber);
+          if (!previousChallengeEntry) {
+            showError("Challenge progression data not found. Please refresh the page.");
+            return;
+          }
+          const completedAtDate = new Date(previousChallengeEntry.completedAt);
+          unlockTime = completedAtDate.getTime() + (previousChallenge.duration * 60 * 60 * 1000);
         }
-        const completedAt = completedAtDate.getTime();
-        const unlockTime = completedAt + (previousChallenge.duration * 60 * 60 * 1000);
+
         const isUnlocked = Date.now() >= unlockTime;
 
         if (!isUnlocked) {
