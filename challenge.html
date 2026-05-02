@@ -920,13 +920,17 @@
 
       const submissionHistory = Array.isArray(currentUserData.submissionHistory) ? currentUserData.submissionHistory : [];
 
-      // Determine which challenge to show: the lowest ID not yet completed
-      let nextChallengeNumber = 1;
-      for (let i = 1; i <= challenges.length; i++) {
-        const isCompleted = submissionHistory.some(entry => entry.challengeId === i);
-        if (!isCompleted) {
-          nextChallengeNumber = i;
-          break;
+      // If user is currently working on a challenge, show that one
+      let nextChallengeNumber = currentUserData.currentChallenge || 1;
+
+      // Otherwise, determine which challenge to show: the lowest ID not yet completed
+      if (!currentUserData.currentChallenge) {
+        for (let i = 1; i <= challenges.length; i++) {
+          const isCompleted = submissionHistory.some(entry => entry.challengeId === i);
+          if (!isCompleted) {
+            nextChallengeNumber = i;
+            break;
+          }
         }
       }
 
