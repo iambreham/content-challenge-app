@@ -1131,34 +1131,32 @@
       challengeBrief.textContent = activeChallenge.brief;
       durationDisplay.textContent = `${activeChallenge.duration} hrs`;
 
-      // Check if this challenge has actually been started (is it in currentChallenge?)
-      // BUT: if the previous challenge's timer hasn't expired yet, the challenge isn't truly started
+      // Match challenge page logic exactly:
+      // If locked: show hint button only, hide timer, hide "Open Challenge" button
+      // If unlocked but not in currentChallenge: show "Start Challenge" button, hide timer
+      // If unlocked and in currentChallenge: show "Open Challenge" button, show timer
       const currentChallengeFromDb = userData.currentChallenge || 1;
-      let isCurrentChallengeActive = currentChallengeFromDb === activeChallengeNumber && !isUserLocked;
+      const isChallengeInCurrentChallenge = currentChallengeFromDb === activeChallengeNumber;
+      const timerBox = document.getElementById("timerBox");
 
-      // If user is locked, hide Open Challenge button and only show Hint button
       if (isUserLocked) {
+        // Locked on previous challenge
         goToChallengeBtn.style.display = "none";
+        timerBox.style.display = "none";
         hintBtn.textContent = "Hint: What's Next?";
-      } else if (!isCurrentChallengeActive) {
-        // Challenge is unlocked but not started yet - show Start button
+      } else if (!isChallengeInCurrentChallenge) {
+        // Unlocked but not started - show Start button
         goToChallengeBtn.textContent = `Start Challenge ${activeChallengeNumber}`;
         goToChallengeBtn.style.display = "block";
+        timerBox.style.display = "none";
         hintBtn.textContent = "Hint: What's Next?";
       } else {
-        // Challenge is in progress
+        // Started - show Open button and timer
         goToChallengeBtn.textContent = "Open Challenge";
         goToChallengeBtn.style.display = "block";
-        hintBtn.textContent = "Hint: What's Next?";
-      }
-
-      // Show or hide timer based on whether challenge is active
-      const timerBox = document.getElementById("timerBox");
-      if (isCurrentChallengeActive) {
         timerBox.style.display = "block";
         startChallengeTimer(challengeTimerStart, activeChallenge.duration);
-      } else {
-        timerBox.style.display = "none";
+        hintBtn.textContent = "Hint: What's Next?";
       }
 
       challengeCard.style.display = "block";
