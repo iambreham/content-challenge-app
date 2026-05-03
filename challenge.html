@@ -717,6 +717,29 @@
         <div id="restartStatus" class="status"></div>
       </article>
     </section>
+
+    <!-- Shown after completing a challenge while waiting for next to unlock -->
+    <article id="completedCard" class="card" style="display:none; max-width:820px; margin:0 auto;">
+      <div class="challenge-pill" id="completedPill">✅ Challenge Complete!</div>
+      <h2 class="challenge-title" id="completedTitle">You did it! 🎉</h2>
+      <p class="challenge-brief" id="completedMsg">Your next challenge unlocks when the countdown ends.</p>
+
+      <div class="meta-grid">
+        <div class="meta-box">
+          <div class="meta-label" id="unlockTimerLabel">Next challenge in</div>
+          <div class="meta-value" id="unlockCountdown">00:00:00</div>
+        </div>
+        <div class="meta-box">
+          <div class="meta-label">Up next</div>
+          <div class="meta-value" id="nextChallengeLabel">Challenge 2</div>
+        </div>
+      </div>
+
+      <div class="button-row" style="margin-top: 18px;">
+        <button class="secondary-btn" type="button" onclick="window.location.href='./dashboard.html'">Back to Dashboard</button>
+        <button id="startNextChallengeBtn" class="primary-btn" type="button" style="display:none;">Start Challenge 2</button>
+      </div>
+    </article>
   </main>
 
   <nav class="bottom-nav">
@@ -739,7 +762,8 @@
       updateDoc,
       increment,
       serverTimestamp,
-      arrayUnion
+      arrayUnion,
+      deleteField
     } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
     import { challenges } from "./challenges.js";
 
@@ -807,6 +831,14 @@
         String(minutes).padStart(2, "0"),
         String(seconds).padStart(2, "0")
       ].join(":");
+    }
+
+    function parseCompletionDate(value) {
+      if (!value) return null;
+      if (value.toDate) return value.toDate();
+      if (value instanceof Date) return value;
+      const parsed = new Date(value);
+      return isNaN(parsed.getTime()) ? null : parsed;
     }
 
     function setStatus(message = "", type = "") {
@@ -920,85 +952,44 @@
 
       const submissionHistory = Array.isArray(currentUserData.submissionHistory) ? currentUserData.submissionHistory : [];
 
-      // If user is currently working on a challenge, show that one
-      let nextChallengeNumber = currentUserData.currentChallenge || 1;
-
-      // Otherwise, determine which challenge to show: the lowest ID not yet completed
-      if (!currentUserData.currentChallenge) {
-        for (let i = 1; i <= challenges.length; i++) {
-          const isCompleted = submissionHistory.some(entry => entry.challengeId === i);
-          if (!isCompleted) {
-            nextChallengeNumber = i;
-            break;
-          }
+      // Always derive the active challenge from submissionHistory — never rely on the stale currentChallenge field
+      let nextChallengeNumber = null;
+      for (let i = 1; i <= challenges.length; i++) {
+        const isCompleted = submissionHistory.some(entry => Number(entry.challengeId) === i);
+        if (!isCompleted) {
+          nextChallengeNumber = i;
+          break;
         }
+      }
+
+      if (!nextChallengeNumber) {
+        loadingState.classList.remove("show");
+        challengeContent.style.display = "none";
+        showCompletionCard(challenges.length, challenges.length + 1, Date.now());
+        return;
       }
 
       currentChallenge = challenges.find(ch => ch.id === nextChallengeNumber) || challenges[0];
 
-      // Check if challenge is locked (for new challenges that haven't been started)
-      if (nextChallengeNumber > 1 && !currentUserData.challengeStarted) {
+      // Check if the next challenge's unlock window hasn't passed yet
+      if (nextChallengeNumber > 1) {
         const previousChallengeNumber = nextChallengeNumber - 1;
         const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
-        const previousChallengeEntry = submissionHistory.find(entry => entry.challengeId === previousChallengeNumber);
+        const previousChallengeEntry = submissionHistory.find(entry => Number(entry.challengeId) === previousChallengeNumber);
 
         if (previousChallengeEntry) {
-          const completedAtDate = new Date(previousChallengeEntry.completedAt);
+          const completedAtDate = parseCompletionDate(previousChallengeEntry.completedAt);
+          if (!completedAtDate) {
+            showError("Your completion data is corrupted. Please contact support.");
+            return;
+          }
           const unlockTime = completedAtDate.getTime() + (previousChallenge.duration * 60 * 60 * 1000);
           const isUnlocked = Date.now() >= unlockTime;
 
           if (!isUnlocked) {
-            // Show countdown timer
             loadingState.classList.remove("show");
             challengeContent.style.display = "none";
-
-            pageSubtitle.textContent = "Challenge completed! Unlock the next one when the timer runs out.";
-            challengePill.textContent = `Challenge ${previousChallengeNumber} of ${challenges.length}`;
-            challengeTitle.textContent = previousChallenge.title;
-
-            const lockoutDiv = document.createElement("div");
-            lockoutDiv.style.cssText = "text-align: center; padding: 40px; font-size: 18px; color: #4b4b4b;";
-            lockoutDiv.id = "lockoutTimer";
-            document.querySelector(".app").appendChild(lockoutDiv);
-
-            function updateLockoutTimer() {
-              const timeLeft = unlockTime - Date.now();
-              if (timeLeft <= 0) {
-                // Countdown expired - show start button
-                lockoutDiv.innerHTML = `
-                  <p style="margin: 0 0 20px; font-size: 20px; font-weight: 800; color: var(--ink);">Challenge ${nextChallengeNumber} is ready!</p>
-                  <button id="unlockBtn" class="primary-btn" type="button" style="padding: 16px 32px; margin: 0 auto;">Start Challenge ${nextChallengeNumber}</button>
-                `;
-                const unlockBtn = document.getElementById("unlockBtn");
-                if (unlockBtn) {
-                  unlockBtn.addEventListener("click", async () => {
-                    unlockBtn.disabled = true;
-                    try {
-                      await updateDoc(doc(db, "users", currentUser.uid), {
-                        currentChallenge: nextChallengeNumber,
-                        challengeStarted: true,
-                        startTime: serverTimestamp(),
-                        duration: nextChallenge.duration
-                      });
-                      setTimeout(() => {
-                        window.location.reload();
-                      }, 1000);
-                    } catch (error) {
-                      console.error("Error:", error);
-                      unlockBtn.disabled = false;
-                    }
-                  });
-                }
-                return;
-              }
-              const hours = Math.floor(timeLeft / (1000 * 60 * 60));
-              const minutes = Math.floor((timeLeft % (1000 * 60 * 60)) / (1000 * 60));
-              const seconds = Math.floor((timeLeft % (1000 * 60)) / 1000);
-              lockoutDiv.textContent = `Next challenge unlocks in ${hours}h ${minutes}m ${seconds}s`;
-            }
-
-            updateLockoutTimer();
-            setInterval(updateLockoutTimer, 1000);
+            showCompletionCard(previousChallengeNumber, nextChallengeNumber, unlockTime);
             return;
           }
         }
@@ -1007,26 +998,26 @@
       // User can access this challenge. Calculate the timer start time.
       let challengeTimerStart;
 
-      // If user just started this challenge, use their actual start time
-      if (currentUserData.currentChallenge === nextChallengeNumber && currentUserData.startTime) {
-        challengeTimerStart = currentUserData.startTime.toDate ? currentUserData.startTime.toDate() : new Date(currentUserData.startTime);
-      }
-      else if (nextChallengeNumber === 1) {
-        // Challenge 1: timer starts from programStartDate
+      if (nextChallengeNumber === 1) {
+        // Challenge 1: timer starts from when the user started the program
         challengeTimerStart = new Date();
-        if (currentUserData.programStartDate?.toDate) {
+        if (currentUserData.startTime?.toDate) {
+          challengeTimerStart = currentUserData.startTime.toDate();
+        } else if (currentUserData.startTime) {
+          challengeTimerStart = new Date(currentUserData.startTime);
+        } else if (currentUserData.programStartDate?.toDate) {
           challengeTimerStart = currentUserData.programStartDate.toDate();
         }
       } else {
         // Challenge N: timer starts from when previous challenge was completed + previous duration
-        const previousEntry = submissionHistory.find(entry => entry.challengeId === nextChallengeNumber - 1);
+        const previousEntry = submissionHistory.find(entry => Number(entry.challengeId) === nextChallengeNumber - 1);
         if (!previousEntry) {
           showError("Something went wrong with your challenge data.");
           return;
         }
         const previousChallenge = challenges.find(ch => ch.id === nextChallengeNumber - 1);
-        const previousCompletedAtDate = new Date(previousEntry.completedAt);
-        if (isNaN(previousCompletedAtDate.getTime())) {
+        const previousCompletedAtDate = parseCompletionDate(previousEntry.completedAt);
+        if (!previousCompletedAtDate) {
           showError("Your completion data is corrupted. Please contact support.");
           return;
         }
@@ -1067,6 +1058,51 @@
       challengeContent.style.display = "grid";
     }
 
+    let unlockCountdownInterval = null;
+
+    function showCompletionCard(completedChallengeNum, nextChallengeNum, unlockTime) {
+      const completedCard = document.getElementById("completedCard");
+      const nextChallenge = challenges.find(ch => ch.id === nextChallengeNum);
+      const countdownDisplay = document.getElementById("unlockCountdown");
+      const timerLabelEl = document.getElementById("unlockTimerLabel");
+      const startNextBtn = document.getElementById("startNextChallengeBtn");
+
+      document.getElementById("completedPill").textContent = `✅ Challenge ${completedChallengeNum} Complete!`;
+
+      if (nextChallenge) {
+        document.getElementById("nextChallengeLabel").textContent = `Challenge ${nextChallengeNum}`;
+        document.getElementById("completedMsg").textContent = "Your next challenge unlocks when the countdown ends. Come back ready.";
+        startNextBtn.textContent = `Start Challenge ${nextChallengeNum}`;
+        startNextBtn.onclick = () => window.location.reload();
+
+        if (unlockCountdownInterval) clearInterval(unlockCountdownInterval);
+
+        function updateUnlockCountdown() {
+          const timeLeft = unlockTime - Date.now();
+          if (timeLeft <= 0) {
+            clearInterval(unlockCountdownInterval);
+            countdownDisplay.textContent = "Ready!";
+            timerLabelEl.textContent = "Status";
+            startNextBtn.style.display = "inline-flex";
+            return;
+          }
+          countdownDisplay.textContent = formatClock(timeLeft) + " left";
+        }
+
+        updateUnlockCountdown();
+        unlockCountdownInterval = setInterval(updateUnlockCountdown, 1000);
+      } else {
+        // All 16 challenges done
+        document.getElementById("nextChallengeLabel").textContent = "All done!";
+        document.getElementById("completedMsg").textContent = "You've completed all 16 challenges. That's not nothing — that's everything.";
+        countdownDisplay.textContent = "🏆";
+        timerLabelEl.textContent = "Status";
+        document.getElementById("completedTitle").textContent = "Challenge complete. You crushed it.";
+      }
+
+      completedCard.style.display = "block";
+    }
+
     document.querySelectorAll(".feeling-btn").forEach(btn => {
       btn.addEventListener("click", () => {
         document.querySelectorAll(".feeling-btn").forEach(b => b.classList.remove("selected"));
@@ -1079,27 +1115,35 @@
     completeBtn.addEventListener("click", async () => {
       if (!currentUser || !currentUserData || !currentChallenge) return;
 
+      completeBtn.disabled = true;
+      setStatus("Saving...", "");
+
       try {
+        const completedAt = new Date();
         const historyEntry = {
           challengeId: currentChallenge.id,
           challengeTitle: currentChallenge.title,
           feeling: selectedFeeling,
-          completedAt: new Date().toISOString(),
+          completedAt: completedAt.toISOString(),
           wasOverdue: isCurrentChallengeOverdue
         };
 
         const userRef = doc(db, "users", currentUser.uid);
-
         await updateDoc(userRef, {
           completedCount: increment(1),
           submissionHistory: arrayUnion(historyEntry)
         });
 
-        setStatus("Challenge completed! Your next challenge unlocks when the timer runs out.", "success");
-        completeBtn.disabled = true;
-        await loadChallenge(currentUser);
+        // Calculate when the next challenge unlocks
+        const unlockTime = completedAt.getTime() + (currentChallenge.duration * 60 * 60 * 1000);
+        const nextChallengeNum = currentChallenge.id + 1;
+
+        if (timerInterval) clearInterval(timerInterval);
+        challengeContent.style.display = "none";
+        showCompletionCard(currentChallenge.id, nextChallengeNum, unlockTime);
       } catch (error) {
         console.error(error);
+        completeBtn.disabled = false;
         setStatus("Couldn't complete the challenge.", "error");
       }
     });
@@ -1120,9 +1164,12 @@
 
         await updateDoc(userRef, {
           currentChallenge: 1,
+          challengeStarted: true,
           completedCount: 0,
           startTime: serverTimestamp(),
           programStartDate: serverTimestamp(),
+          submissionHistory: [],
+          challengeEmailSent: deleteField(),
           submissionLink: "",
           duration: challenges[0].duration
         });

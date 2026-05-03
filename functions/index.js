@@ -31,96 +31,130 @@ if (!apiKey) {
   sgMail.setApiKey(apiKey);
 }
 
-// Cloud Function triggered daily to send notification emails
+// Duration (hours) for each of the 16 challenges, indexed by challenge ID
+const CHALLENGE_DURATIONS = {
+  1: 24, 2: 48, 3: 48, 4: 72, 5: 24,
+  6: 48, 7: 48, 8: 48, 9: 48, 10: 72,
+  11: 24, 12: 48, 13: 48, 14: 24, 15: 48, 16: 72
+};
+
+const MS_PER_HOUR = 60 * 60 * 1000;
+
+function formatTimeRemaining(ms) {
+  const totalMinutes = Math.max(1, Math.ceil(ms / (60 * 1000)));
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+
+  if (hours && minutes) return `${hours} hour${hours === 1 ? '' : 's'} ${minutes} minute${minutes === 1 ? '' : 's'}`;
+  if (hours) return `${hours} hour${hours === 1 ? '' : 's'}`;
+  return `${minutes} minute${minutes === 1 ? '' : 's'}`;
+}
+
+function parseCompletionDate(value) {
+  if (!value) return null;
+  if (typeof value.toDate === 'function') return value.toDate();
+  if (value instanceof Date) return value;
+  const parsed = new Date(value);
+  return isNaN(parsed.getTime()) ? null : parsed;
+}
+
+function getPendingChallengeNotification(user, now) {
+  if (!user.email) return null;
+  if (!Array.isArray(user.submissionHistory) || user.submissionHistory.length === 0) return null;
+
+  const completedIds = new Set(user.submissionHistory.map(entry => Number(entry.challengeId)));
+  let nextChallengeId = null;
+  for (let i = 1; i <= 16; i++) {
+    if (!completedIds.has(i)) {
+      nextChallengeId = i;
+      break;
+    }
+  }
+
+  if (!nextChallengeId || nextChallengeId === 1) return null;
+  if (user.challengeEmailSent && user.challengeEmailSent[nextChallengeId]) return null;
+
+  const previousChallengeId = nextChallengeId - 1;
+  const previousEntry = user.submissionHistory
+    .filter(entry => Number(entry.challengeId) === previousChallengeId)
+    .sort((a, b) => {
+      const bDate = parseCompletionDate(b.completedAt);
+      const aDate = parseCompletionDate(a.completedAt);
+      return (bDate ? bDate.getTime() : 0) - (aDate ? aDate.getTime() : 0);
+    })[0];
+  if (!previousEntry) return null;
+
+  const completedAt = parseCompletionDate(previousEntry.completedAt);
+  if (!completedAt) return null;
+
+  const previousDuration = CHALLENGE_DURATIONS[previousChallengeId] || 24;
+  const nextDuration = CHALLENGE_DURATIONS[nextChallengeId] || 24;
+  const unlockTime = completedAt.getTime() + previousDuration * MS_PER_HOUR;
+  const endTime = unlockTime + nextDuration * MS_PER_HOUR;
+  const remainingMs = endTime - now.getTime();
+
+  if (now.getTime() < unlockTime || remainingMs <= 0) return null;
+
+  return {
+    nextChallengeId,
+    remainingText: formatTimeRemaining(remainingMs)
+  };
+}
+
+function buildChallengeEmail(user, nextChallengeId, remainingText) {
+  const name = user.displayName || user.name || 'Creator';
+
+  return {
+    to: user.email,
+    from: process.env.SENDGRID_FROM_EMAIL || 'noreply@mycreativehq.com',
+    subject: `🔓 Your next challenge has started — ${remainingText} left ⏳`,
+    html: `
+      <h2>Your next challenge has started, ${name}!</h2>
+      <p><strong>Challenge ${nextChallengeId}</strong> is now live and your timer is running.</p>
+      <p>You have <strong>${remainingText} left</strong> to complete it before this challenge window closes.</p>
+      <p>Head back to your dashboard, review the assignment, and mark it complete once you finish the work.</p>
+      <p>
+        <a href="https://creativehq-challenge.netlify.app/challenge.html"
+           style="background-color: #8caf49; color: white; padding: 12px 24px; text-decoration: none; border-radius: 8px; display: inline-block; font-weight: bold;">
+          Go to Challenge ${nextChallengeId}
+        </a>
+      </p>
+      <p style="margin-top: 20px; color: #666; font-size: 14px;">Don't wait — every hour counts.</p>
+      <p>— MyCreativeHQ</p>
+    `,
+  };
+}
+
+// Cloud Function triggered hourly to send notification emails
 exports.sendChallengeNotifications = functions.pubsub
-  .schedule('0 8 * * *') // Run every day at 8am
+  .schedule('0 * * * *') // Run every hour
   .timeZone('America/New_York')
   .onRun(async (context) => {
     try {
       const db = admin.firestore();
       const now = new Date();
 
-      // Get all users
       const usersSnapshot = await db.collection('users').get();
-
       let emailsSent = 0;
 
       for (const userDoc of usersSnapshot.docs) {
         const user = userDoc.data();
         const userId = userDoc.id;
 
-        if (!user.email) {
-          console.log(`User ${userId} has no email, skipping`);
-          continue;
-        }
+        const notification = getPendingChallengeNotification(user, now);
+        if (!notification) continue;
 
-        // Get user's current challenge progress
-        const progressSnapshot = await db
-          .collection('users')
-          .doc(userId)
-          .collection('progress')
-          .orderBy('completedAt', 'desc')
-          .limit(1)
-          .get();
+        const msg = buildChallengeEmail(user, notification.nextChallengeId, notification.remainingText);
 
-        if (progressSnapshot.empty) {
-          // User hasn't completed any challenges
-          continue;
-        }
-
-        const lastProgress = progressSnapshot.docs[0].data();
-        const completedAt = lastProgress.completedAt.toDate();
-        const challengeDuration = lastProgress.duration || 24; // Default 24 hours
-
-        // Calculate when next challenge unlocks
-        const nextUnlockTime = new Date(completedAt.getTime() + challengeDuration * 60 * 60 * 1000);
-
-        // Check if challenge just unlocked (within last hour)
-        const timeSinceUnlock = now - nextUnlockTime;
-        const oneHourMs = 60 * 60 * 1000;
-
-        if (timeSinceUnlock > 0 && timeSinceUnlock < oneHourMs) {
-          // Challenge just unlocked! Send email
-          const nextChallengeNumber = lastProgress.challengeId + 1;
-
-          // Get the next challenge's duration (hardcoded for now - update if challenge list changes)
-          const challengeDurations = {
-            1: 24,
-            2: 48,
-            3: 24,
-            4: 48,
-            5: 24,
-            // Add more as needed
-          };
-          const nextChallengeDuration = challengeDurations[nextChallengeNumber] || 24;
-
-          const msg = {
-            to: user.email,
-            from: process.env.SENDGRID_FROM_EMAIL || 'noreply@mycreativehq.com',
-            subject: `🚀 Challenge ${nextChallengeNumber} is ready! (${nextChallengeDuration}-hour challenge)`,
-            html: `
-              <h2>Welcome back, ${user.displayName || 'Creator'}!</h2>
-              <p>Great news! <strong>Challenge ${nextChallengeNumber}</strong> is now unlocked and ready for you to start.</p>
-              <p>This is a <strong>${nextChallengeDuration}-hour challenge</strong> — you have ${nextChallengeDuration} hours to complete it once you start.</p>
-              <p>
-                <a href="https://creativehq-challenge.netlify.app/challenge.html"
-                   style="background-color: #FF6B35; color: white; padding: 12px 24px; text-decoration: none; border-radius: 5px; display: inline-block; font-weight: bold;">
-                  Start Challenge ${nextChallengeNumber} Now
-                </a>
-              </p>
-              <p style="margin-top: 20px; color: #666; font-size: 14px;">Once you click start, your ${nextChallengeDuration}-hour timer begins. You can submit anytime during the window.</p>
-              <p>Keep the momentum going! 💪</p>
-              <p>— MyCreativeHQ</p>
-            `,
-          };
-
-          try {
-            await sgMail.send(msg);
-            console.log(`Email sent to ${user.email} for challenge ${nextChallengeNumber}`);
-            emailsSent++;
-          } catch (error) {
-            console.error(`Failed to send email to ${user.email}:`, error);
-          }
+        try {
+          await sgMail.send(msg);
+          await db.collection('users').doc(userId).update({
+            [`challengeEmailSent.${notification.nextChallengeId}`]: admin.firestore.Timestamp.now()
+          });
+          console.log(`Email sent to ${user.email} for challenge ${notification.nextChallengeId}`);
+          emailsSent++;
+        } catch (error) {
+          console.error(`Failed to send email to ${user.email}:`, error);
         }
       }
 
@@ -149,53 +183,19 @@ exports.triggerChallengeEmails = functions.https.onRequest(async (req, res) => {
 
     for (const userDoc of usersSnapshot.docs) {
       const user = userDoc.data();
-      const userId = userDoc.id;
+      const notification = getPendingChallengeNotification(user, now);
+      if (!notification) continue;
 
-      if (!user.email) continue;
+      const msg = buildChallengeEmail(user, notification.nextChallengeId, notification.remainingText);
 
-      const progressSnapshot = await db
-        .collection('users')
-        .doc(userId)
-        .collection('progress')
-        .orderBy('completedAt', 'desc')
-        .limit(1)
-        .get();
-
-      if (progressSnapshot.empty) continue;
-
-      const lastProgress = progressSnapshot.docs[0].data();
-      const completedAt = lastProgress.completedAt.toDate();
-      const challengeDuration = lastProgress.duration || 24;
-      const nextUnlockTime = new Date(completedAt.getTime() + challengeDuration * 60 * 60 * 1000);
-
-      if (nextUnlockTime <= now) {
-        const nextChallengeNumber = lastProgress.challengeId + 1;
-
-        const msg = {
-          to: user.email,
-          from: process.env.SENDGRID_FROM_EMAIL || 'noreply@mycreativehq.com',
-          subject: `🚀 Your next challenge is ready! Challenge ${nextChallengeNumber} unlocked`,
-          html: `
-            <h2>Welcome back, ${user.displayName || 'Creator'}!</h2>
-            <p>Great news! Your next challenge is now available.</p>
-            <p><strong>Challenge ${nextChallengeNumber}</strong> is ready for you to start.</p>
-            <p>
-              <a href="https://creativehq-challenge.netlify.app/challenge.html"
-                 style="background-color: #FF6B35; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px; display: inline-block;">
-                Start Challenge ${nextChallengeNumber}
-              </a>
-            </p>
-            <p>Keep the momentum going! 💪</p>
-            <p>— MyCreativeHQ</p>
-          `,
-        };
-
-        try {
-          await sgMail.send(msg);
-          emailsSent++;
-        } catch (error) {
-          console.error(`Failed to send email to ${user.email}:`, error);
-        }
+      try {
+        await sgMail.send(msg);
+        await db.collection('users').doc(userDoc.id).update({
+          [`challengeEmailSent.${notification.nextChallengeId}`]: admin.firestore.Timestamp.now()
+        });
+        emailsSent++;
+      } catch (error) {
+        console.error(`Failed to send email to ${user.email}:`, error);
       }
     }
 
@@ -223,7 +223,11 @@ exports.resetUserChallenge = functions.https.onCall(async (data, context) => {
     await db.collection('users').doc(uid).update({
       currentChallenge: admin.firestore.FieldValue.delete(),
       challengeStarted: admin.firestore.FieldValue.delete(),
-      startTime: admin.firestore.FieldValue.delete()
+      startTime: admin.firestore.FieldValue.delete(),
+      programStartDate: admin.firestore.FieldValue.delete(),
+      completedCount: 0,
+      submissionHistory: [],
+      challengeEmailSent: admin.firestore.FieldValue.delete()
     });
 
     return { success: true, message: 'Challenge data reset. Refresh the page.' };

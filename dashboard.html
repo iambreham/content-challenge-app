@@ -754,7 +754,7 @@
             <div class="meta-value" id="timerDisplay">00:00:00</div>
           </div>
           <div class="meta-box">
-            <div class="meta-label">Duration</div>
+            <div class="meta-label" id="durationLabel">Duration</div>
             <div class="meta-value" id="durationDisplay">24 hrs</div>
           </div>
         </div>
@@ -825,6 +825,7 @@
     const timerDisplay = document.getElementById("timerDisplay");
     const timerLabel = document.getElementById("timerLabel");
     const timerBox = document.getElementById("timerBox");
+    const durationLabel = document.getElementById("durationLabel");
     const durationDisplay = document.getElementById("durationDisplay");
     const motivationMessage = document.getElementById("motivationMessage");
     const todayFocusText = document.getElementById("todayFocusText");
@@ -877,6 +878,14 @@
         String(minutes).padStart(2, "0"),
         String(seconds).padStart(2, "0")
       ].join(":");
+    }
+
+    function parseCompletionDate(value) {
+      if (!value) return null;
+      if (value.toDate) return value.toDate();
+      if (value instanceof Date) return value;
+      const parsed = new Date(value);
+      return isNaN(parsed.getTime()) ? null : parsed;
     }
 
     function startChallengeTimer(challengeStartDate, durationHours) {
@@ -1044,37 +1053,73 @@
       const submissionHistory = Array.isArray(userData.submissionHistory) ? userData.submissionHistory : [];
 
       // Determine which challenge to show: the lowest ID not yet completed
-      let activeChallengeNumber = 1;
+      let activeChallengeNumber = null;
       for (let i = 1; i <= challenges.length; i++) {
-        const isCompleted = submissionHistory.some(entry => entry.challengeId === i);
+        const isCompleted = submissionHistory.some(entry => Number(entry.challengeId) === i);
         if (!isCompleted) {
           activeChallengeNumber = i;
           break;
         }
       }
 
-      activeChallenge = challenges.find(ch => ch.id === activeChallengeNumber) || challenges[0];
+      activeChallenge = activeChallengeNumber
+        ? challenges.find(ch => ch.id === activeChallengeNumber) || challenges[0]
+        : challenges[challenges.length - 1];
 
       let programStartDate = new Date();
       if (userData.programStartDate?.toDate) {
         programStartDate = userData.programStartDate.toDate();
       }
 
+      if (!activeChallengeNumber) {
+        const todayIndexRaw = getDayDifference(programStartDate, new Date());
+        const todayIndex = Math.max(0, Math.min(todayIndexRaw, 29));
+        const currentDayNumber = todayIndex + 1;
+
+        welcomeText.textContent = "You finished the whole challenge. That counts.";
+        dayLine.style.display = "block";
+        dayCountText.textContent = `Day ${currentDayNumber} of 30`;
+        motivationMessage.textContent = "All 16 challenges are complete.";
+
+        buildWeekView(programStartDate, challenges.length);
+        calendarCard.style.display = "block";
+
+        todayFocusText.textContent = "All 16 challenges are complete. Go look at what you built and let it land for a second.";
+        focusCard.style.display = "block";
+
+        challengePill.textContent = "Challenge Complete";
+        challengeTitle.textContent = "All 16 Challenges Complete";
+        challengeBrief.textContent = "You made it through the full sequence.";
+        timerBox.style.display = "none";
+        durationLabel.textContent = "Status";
+        durationDisplay.textContent = "All done";
+        goToChallengeBtn.style.display = "none";
+        hintBtn.style.display = "none";
+        challengeCard.style.display = "block";
+        return;
+      }
+
       // Check if user is locked (previous challenge's unlock time hasn't passed yet)
       let isUserLocked = false;
       let actuallyActiveChallengeNumber = activeChallengeNumber;
+      let lockedPreviousChallengeNumber = null;
+      let lockedPreviousChallenge = null;
+      let lockedUnlockTime = null;
       if (activeChallengeNumber > 1) {
         const previousChallengeNumber = activeChallengeNumber - 1;
-        const previousEntry = submissionHistory.find(entry => entry.challengeId === previousChallengeNumber);
+        const previousEntry = submissionHistory.find(entry => Number(entry.challengeId) === previousChallengeNumber);
         if (previousEntry) {
           const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
-          const completedAtDate = new Date(previousEntry.completedAt);
-          if (!isNaN(completedAtDate.getTime())) {
+          const completedAtDate = parseCompletionDate(previousEntry.completedAt);
+          if (completedAtDate) {
             const completedAt = completedAtDate.getTime();
             const unlockTime = completedAt + (previousChallenge.duration * 60 * 60 * 1000);
             isUserLocked = Date.now() < unlockTime;
             if (isUserLocked) {
               actuallyActiveChallengeNumber = previousChallengeNumber;
+              lockedPreviousChallengeNumber = previousChallengeNumber;
+              lockedPreviousChallenge = previousChallenge;
+              lockedUnlockTime = unlockTime;
             }
           }
         }
@@ -1085,14 +1130,14 @@
       if (activeChallengeNumber === 1) {
         challengeTimerStart = programStartDate;
       } else {
-        const previousEntry = submissionHistory.find(entry => entry.challengeId === activeChallengeNumber - 1);
+        const previousEntry = submissionHistory.find(entry => Number(entry.challengeId) === activeChallengeNumber - 1);
         if (!previousEntry) {
           showError("Something went wrong loading your dashboard.");
           return;
         }
         const previousChallenge = challenges.find(ch => ch.id === activeChallengeNumber - 1);
-        const previousCompletedAtDate = new Date(previousEntry.completedAt);
-        if (isNaN(previousCompletedAtDate.getTime())) {
+        const previousCompletedAtDate = parseCompletionDate(previousEntry.completedAt);
+        if (!previousCompletedAtDate) {
           showError("Your completion data is corrupted. Please contact support.");
           return;
         }
@@ -1123,33 +1168,55 @@
       buildWeekView(programStartDate, actuallyActiveChallengeNumber);
       calendarCard.style.display = "block";
 
-      todayFocusText.textContent = getTodayFocus(activeChallenge, isOverdue && !isUserLocked);
+      const displayChallenge = isUserLocked && lockedPreviousChallenge ? lockedPreviousChallenge : activeChallenge;
+      const displayChallengeNumber = isUserLocked && lockedPreviousChallengeNumber ? lockedPreviousChallengeNumber : activeChallengeNumber;
+
+      todayFocusText.textContent = isUserLocked
+        ? `Challenge ${displayChallengeNumber} is complete. Challenge ${activeChallengeNumber} unlocks when the countdown ends.`
+        : getTodayFocus(activeChallenge, isOverdue);
       focusCard.style.display = "block";
 
-      challengePill.textContent = `Challenge ${activeChallenge.id} of ${challenges.length}`;
-      challengeTitle.textContent = activeChallenge.title;
-      challengeBrief.textContent = activeChallenge.brief;
-      durationDisplay.textContent = `${activeChallenge.duration} hrs`;
+      challengePill.textContent = isUserLocked
+        ? `Challenge ${displayChallengeNumber} Complete`
+        : `Challenge ${displayChallenge.id} of ${challenges.length}`;
+      challengeTitle.textContent = displayChallenge.title;
+      challengeBrief.textContent = isUserLocked
+        ? `Challenge ${activeChallengeNumber} unlocks when the countdown ends.`
+        : displayChallenge.brief;
+      durationLabel.textContent = isUserLocked ? "Up next" : "Duration";
+      durationDisplay.textContent = isUserLocked ? `Challenge ${activeChallengeNumber}` : `${displayChallenge.duration} hrs`;
 
-      // Simple logic: if locked, show hint only. Otherwise show "Start Challenge X" button
-      const timerBox = document.getElementById("timerBox");
+      const timerBoxEl = document.getElementById("timerBox");
 
       if (isUserLocked) {
-        // Locked - can't access this challenge yet
+        // Locked — show countdown to when the next challenge unlocks
         goToChallengeBtn.style.display = "none";
-        timerBox.style.display = "none";
+        hintBtn.style.display = "block";
+        timerBoxEl.style.display = "block";
+        timerLabel.textContent = "Unlocks in";
         hintBtn.textContent = "Hint: What's Next?";
-      } else if (userData.currentChallenge === activeChallengeNumber && userData.challengeStarted) {
-        // Already started this challenge - show continue button
-        goToChallengeBtn.textContent = `Continue Challenge ${activeChallengeNumber}`;
-        goToChallengeBtn.style.display = "block";
-        timerBox.style.display = "none";
-        hintBtn.textContent = "Hint: What's Next?";
+
+        if (timerInterval) clearInterval(timerInterval);
+        function updateUnlockTimer() {
+          const timeLeft = lockedUnlockTime - Date.now();
+          if (timeLeft <= 0) {
+            clearInterval(timerInterval);
+            timerDisplay.textContent = "Ready now!";
+            timerLabel.textContent = "Status";
+            goToChallengeBtn.textContent = `Start Challenge ${activeChallengeNumber}`;
+            goToChallengeBtn.style.display = "block";
+            return;
+          }
+          timerDisplay.textContent = formatClock(timeLeft) + " left";
+        }
+        updateUnlockTimer();
+        timerInterval = setInterval(updateUnlockTimer, 1000);
       } else {
-        // Unlocked and not started - ready to start
+        // Unlocked — show Start/Continue button
+        timerBoxEl.style.display = "none";
         goToChallengeBtn.textContent = `Start Challenge ${activeChallengeNumber}`;
         goToChallengeBtn.style.display = "block";
-        timerBox.style.display = "none";
+        hintBtn.style.display = "block";
         hintBtn.textContent = "Hint: What's Next?";
       }
 
@@ -1234,24 +1301,25 @@
         // Find the active challenge
         let activeChallengeNumber = 1;
         for (let i = 1; i <= challenges.length; i++) {
-          const isCompleted = submissionHistory.some(entry => entry.challengeId === i);
+          const isCompleted = submissionHistory.some(entry => Number(entry.challengeId) === i);
           if (!isCompleted) {
             activeChallengeNumber = i;
             break;
           }
         }
 
-        // Only START the challenge if it hasn't been started yet
-        if (!userData.challengeStarted) {
-          await updateDoc(userRef, {
-            currentChallenge: activeChallengeNumber,
-            challengeStarted: true,
-            startTime: serverTimestamp(),
-            duration: challenges[activeChallengeNumber - 1]?.duration || 24
-          });
+        // Always keep currentChallenge in sync so other parts of the app stay consistent
+        const updates = {
+          currentChallenge: activeChallengeNumber,
+          challengeStarted: true,
+        };
+        // Only set startTime on the very first challenge start
+        if (activeChallengeNumber === 1 && !userData.startTime) {
+          updates.startTime = serverTimestamp();
+          updates.duration = challenges[0].duration;
         }
+        await updateDoc(userRef, updates);
 
-        // Navigate to challenge
         window.location.href = "./challenge.html";
       } catch (error) {
         console.error("Error:", error);

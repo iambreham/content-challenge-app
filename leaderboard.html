@@ -365,6 +365,7 @@
       collection,
       getDocs
     } from "https://www.gstatic.com/firebasejs/12.11.0/firebase-firestore.js";
+    import { challenges } from "./challenges.js";
 
     const firebaseConfig = {
       apiKey: "AIzaSyDJt-uwfTaIC6WDvg8rlhj4GjpsGOis8TM",
@@ -386,6 +387,14 @@
     const emptyState = document.getElementById("emptyState");
 
     const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+
+    function parseCompletionDate(value) {
+      if (!value) return null;
+      if (value.toDate) return value.toDate();
+      if (value instanceof Date) return value;
+      const parsed = new Date(value);
+      return isNaN(parsed.getTime()) ? null : parsed;
+    }
 
     function showError(message) {
       loadingState.classList.remove("show");
@@ -436,6 +445,40 @@
       return now - start <= THIRTY_DAYS_MS;
     }
 
+    function getMaxUnlockedChallenge(programStartDate) {
+      let unlockTime = programStartDate.getTime();
+      let maxUnlocked = 1;
+
+      for (let i = 2; i <= challenges.length; i++) {
+        const previousChallenge = challenges.find(ch => ch.id === i - 1);
+        unlockTime += previousChallenge.duration * 60 * 60 * 1000;
+        if (Date.now() < unlockTime) break;
+        maxUnlocked = i;
+      }
+
+      return maxUnlocked;
+    }
+
+    function deriveLeaderboardProgress(submissionHistory, programStartDate) {
+      const maxUnlockedChallenge = getMaxUnlockedChallenge(programStartDate);
+      let completedCount = 0;
+
+      for (let challengeId = 1; challengeId <= maxUnlockedChallenge; challengeId++) {
+        const hasCompletion = submissionHistory.some(entry =>
+          Number(entry.challengeId) === challengeId &&
+          parseCompletionDate(entry.completedAt)
+        );
+
+        if (!hasCompletion) break;
+        completedCount += 1;
+      }
+
+      return {
+        completedCount,
+        currentChallenge: Math.min(completedCount + 1, challenges.length)
+      };
+    }
+
     function renderLeaderboard(users) {
       const existingRows = leaderboardContent.querySelectorAll(".leader-row");
       existingRows.forEach(row => row.remove());
@@ -482,10 +525,15 @@
             programStartDate = data.programStartDate.toDate();
           }
 
+          const submissionHistory = Array.isArray(data.submissionHistory) ? data.submissionHistory : [];
+          const progress = programStartDate
+            ? deriveLeaderboardProgress(submissionHistory, programStartDate)
+            : { completedCount: 0, currentChallenge: 1 };
+
           return {
             name: data.name && String(data.name).trim() ? String(data.name).trim() : "Creator",
-            completedCount: Number.isFinite(data.completedCount) ? data.completedCount : 0,
-            currentChallenge: Number.isFinite(data.currentChallenge) ? data.currentChallenge : 1,
+            completedCount: progress.completedCount,
+            currentChallenge: progress.currentChallenge,
             programStartDate
           };
         })
