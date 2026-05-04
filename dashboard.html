@@ -1209,7 +1209,7 @@
             clearInterval(timerInterval);
             timerDisplay.textContent = "Ready now!";
             timerLabel.textContent = "Status";
-            goToChallengeBtn.textContent = `Start Challenge ${activeChallengeNumber}`;
+            goToChallengeBtn.textContent = `Open Challenge ${activeChallengeNumber}`;
             goToChallengeBtn.style.display = "block";
             return;
           }
@@ -1218,9 +1218,9 @@
         updateUnlockTimer();
         timerInterval = setInterval(updateUnlockTimer, 1000);
       } else {
-        // Unlocked — show Start/Continue button
+        // Unlocked — the timer is already running, so this opens the current challenge.
         timerBoxEl.style.display = "none";
-        goToChallengeBtn.textContent = `Start Challenge ${activeChallengeNumber}`;
+        goToChallengeBtn.textContent = `Open Challenge ${activeChallengeNumber}`;
         goToChallengeBtn.style.display = "block";
         hintBtn.style.display = "block";
         hintBtn.textContent = "Hint: What's Next?";

@@ -737,7 +737,7 @@
 
       <div class="button-row" style="margin-top: 18px;">
         <button class="secondary-btn" type="button" onclick="window.location.href='./dashboard.html'">Back to Dashboard</button>
-        <button id="startNextChallengeBtn" class="primary-btn" type="button" style="display:none;">Start Challenge 2</button>
+        <button id="startNextChallengeBtn" class="primary-btn" type="button" style="display:none;">Open Challenge 2</button>
       </div>
     </article>
   </main>
@@ -1076,7 +1076,7 @@
       if (nextChallenge) {
         document.getElementById("nextChallengeLabel").textContent = `Challenge ${nextChallengeNum}`;
         document.getElementById("completedMsg").textContent = "Your next challenge unlocks when the countdown ends. Come back ready.";
-        startNextBtn.textContent = `Start Challenge ${nextChallengeNum}`;
+        startNextBtn.textContent = `Open Challenge ${nextChallengeNum}`;
         startNextBtn.onclick = () => window.location.reload();
 
         if (unlockCountdownInterval) clearInterval(unlockCountdownInterval);
