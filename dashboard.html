@@ -888,6 +888,21 @@
       return isNaN(parsed.getTime()) ? null : parsed;
     }
 
+    function getProgramStartDate(userData) {
+      return parseCompletionDate(userData.programStartDate) ||
+        parseCompletionDate(userData.startTime) ||
+        new Date();
+    }
+
+    function getChallengeStartDate(challengeNumber, programStartDate) {
+      let startMs = programStartDate.getTime();
+      for (let i = 1; i < challengeNumber; i++) {
+        const challenge = challenges.find(ch => ch.id === i);
+        startMs += (challenge?.duration || 24) * 60 * 60 * 1000;
+      }
+      return new Date(startMs);
+    }
+
     function startChallengeTimer(challengeStartDate, durationHours) {
       if (timerInterval) clearInterval(timerInterval);
 
@@ -1066,10 +1081,7 @@
         ? challenges.find(ch => ch.id === activeChallengeNumber) || challenges[0]
         : challenges[challenges.length - 1];
 
-      let programStartDate = new Date();
-      if (userData.programStartDate?.toDate) {
-        programStartDate = userData.programStartDate.toDate();
-      }
+      const programStartDate = getProgramStartDate(userData);
 
       if (!activeChallengeNumber) {
         const todayIndexRaw = getDayDifference(programStartDate, new Date());
@@ -1109,11 +1121,9 @@
         const previousChallengeNumber = activeChallengeNumber - 1;
         const previousEntry = submissionHistory.find(entry => Number(entry.challengeId) === previousChallengeNumber);
         if (previousEntry) {
-          const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
           const completedAtDate = parseCompletionDate(previousEntry.completedAt);
           if (completedAtDate) {
-            const completedAt = completedAtDate.getTime();
-            const unlockTime = completedAt + (previousChallenge.duration * 60 * 60 * 1000);
+            const unlockTime = getChallengeStartDate(activeChallengeNumber, programStartDate).getTime();
             isUserLocked = Date.now() < unlockTime;
             if (isUserLocked) {
               actuallyActiveChallengeNumber = previousChallengeNumber;
@@ -1135,16 +1145,12 @@
           showError("Something went wrong loading your dashboard.");
           return;
         }
-        const previousChallenge = challenges.find(ch => ch.id === activeChallengeNumber - 1);
         const previousCompletedAtDate = parseCompletionDate(previousEntry.completedAt);
         if (!previousCompletedAtDate) {
           showError("Your completion data is corrupted. Please contact support.");
           return;
         }
-        const previousCompletedAt = previousCompletedAtDate.getTime();
-        const previousDurationMs = previousChallenge.duration * 60 * 60 * 1000;
-        const whenCouldStart = previousCompletedAt + previousDurationMs;
-        challengeTimerStart = new Date(whenCouldStart);
+        challengeTimerStart = getChallengeStartDate(activeChallengeNumber, programStartDate);
       }
 
       const todayIndexRaw = getDayDifference(programStartDate, new Date());

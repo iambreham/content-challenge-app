@@ -58,9 +58,24 @@ function parseCompletionDate(value) {
   return isNaN(parsed.getTime()) ? null : parsed;
 }
 
+function getProgramStartDate(user) {
+  return parseCompletionDate(user.programStartDate) || parseCompletionDate(user.startTime);
+}
+
+function getChallengeStartDate(challengeNumber, programStartDate) {
+  let startMs = programStartDate.getTime();
+  for (let i = 1; i < challengeNumber; i++) {
+    startMs += (CHALLENGE_DURATIONS[i] || 24) * MS_PER_HOUR;
+  }
+  return new Date(startMs);
+}
+
 function getPendingChallengeNotification(user, now) {
   if (!user.email) return null;
   if (!Array.isArray(user.submissionHistory) || user.submissionHistory.length === 0) return null;
+
+  const programStartDate = getProgramStartDate(user);
+  if (!programStartDate) return null;
 
   const completedIds = new Set(user.submissionHistory.map(entry => Number(entry.challengeId)));
   let nextChallengeId = null;
@@ -87,9 +102,8 @@ function getPendingChallengeNotification(user, now) {
   const completedAt = parseCompletionDate(previousEntry.completedAt);
   if (!completedAt) return null;
 
-  const previousDuration = CHALLENGE_DURATIONS[previousChallengeId] || 24;
   const nextDuration = CHALLENGE_DURATIONS[nextChallengeId] || 24;
-  const unlockTime = completedAt.getTime() + previousDuration * MS_PER_HOUR;
+  const unlockTime = getChallengeStartDate(nextChallengeId, programStartDate).getTime();
   const endTime = unlockTime + nextDuration * MS_PER_HOUR;
   const remainingMs = endTime - now.getTime();
 

@@ -841,6 +841,21 @@
       return isNaN(parsed.getTime()) ? null : parsed;
     }
 
+    function getProgramStartDate(userData) {
+      return parseCompletionDate(userData.programStartDate) ||
+        parseCompletionDate(userData.startTime) ||
+        new Date();
+    }
+
+    function getChallengeStartDate(challengeNumber, programStartDate) {
+      let startMs = programStartDate.getTime();
+      for (let i = 1; i < challengeNumber; i++) {
+        const challenge = challenges.find(ch => ch.id === i);
+        startMs += (challenge?.duration || 24) * 60 * 60 * 1000;
+      }
+      return new Date(startMs);
+    }
+
     function setStatus(message = "", type = "") {
       statusMessage.textContent = message;
       statusMessage.className = `status ${type}`;
@@ -970,11 +985,11 @@
       }
 
       currentChallenge = challenges.find(ch => ch.id === nextChallengeNumber) || challenges[0];
+      const programStartDate = getProgramStartDate(currentUserData);
 
       // Check if the next challenge's unlock window hasn't passed yet
       if (nextChallengeNumber > 1) {
         const previousChallengeNumber = nextChallengeNumber - 1;
-        const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
         const previousChallengeEntry = submissionHistory.find(entry => Number(entry.challengeId) === previousChallengeNumber);
 
         if (previousChallengeEntry) {
@@ -983,7 +998,7 @@
             showError("Your completion data is corrupted. Please contact support.");
             return;
           }
-          const unlockTime = completedAtDate.getTime() + (previousChallenge.duration * 60 * 60 * 1000);
+          const unlockTime = getChallengeStartDate(nextChallengeNumber, programStartDate).getTime();
           const isUnlocked = Date.now() >= unlockTime;
 
           if (!isUnlocked) {
@@ -1000,31 +1015,20 @@
 
       if (nextChallengeNumber === 1) {
         // Challenge 1: timer starts from when the user started the program
-        challengeTimerStart = new Date();
-        if (currentUserData.startTime?.toDate) {
-          challengeTimerStart = currentUserData.startTime.toDate();
-        } else if (currentUserData.startTime) {
-          challengeTimerStart = new Date(currentUserData.startTime);
-        } else if (currentUserData.programStartDate?.toDate) {
-          challengeTimerStart = currentUserData.programStartDate.toDate();
-        }
+        challengeTimerStart = programStartDate;
       } else {
-        // Challenge N: timer starts from when previous challenge was completed + previous duration
+        // Challenge N: timer starts when the prior challenge's timer window ends
         const previousEntry = submissionHistory.find(entry => Number(entry.challengeId) === nextChallengeNumber - 1);
         if (!previousEntry) {
           showError("Something went wrong with your challenge data.");
           return;
         }
-        const previousChallenge = challenges.find(ch => ch.id === nextChallengeNumber - 1);
         const previousCompletedAtDate = parseCompletionDate(previousEntry.completedAt);
         if (!previousCompletedAtDate) {
           showError("Your completion data is corrupted. Please contact support.");
           return;
         }
-        const previousCompletedAt = previousCompletedAtDate.getTime();
-        const previousDurationMs = previousChallenge.duration * 60 * 60 * 1000;
-        const whenCouldStart = previousCompletedAt + previousDurationMs;
-        challengeTimerStart = new Date(whenCouldStart);
+        challengeTimerStart = getChallengeStartDate(nextChallengeNumber, programStartDate);
       }
 
       const endTime = challengeTimerStart.getTime() + currentChallenge.duration * 60 * 60 * 1000;
@@ -1134,8 +1138,9 @@
           submissionHistory: arrayUnion(historyEntry)
         });
 
-        // Calculate when the next challenge unlocks
-        const unlockTime = completedAt.getTime() + (currentChallenge.duration * 60 * 60 * 1000);
+        // Next challenge unlocks when this challenge's timer window ends.
+        const programStartDate = getProgramStartDate(currentUserData);
+        const unlockTime = getChallengeStartDate(currentChallenge.id + 1, programStartDate).getTime();
         const nextChallengeNum = currentChallenge.id + 1;
 
         if (timerInterval) clearInterval(timerInterval);
