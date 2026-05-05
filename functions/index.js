@@ -89,19 +89,6 @@ function getPendingChallengeNotification(user, now) {
   if (!nextChallengeId || nextChallengeId === 1) return null;
   if (user.challengeEmailSent && user.challengeEmailSent[nextChallengeId]) return null;
 
-  const previousChallengeId = nextChallengeId - 1;
-  const previousEntry = user.submissionHistory
-    .filter(entry => Number(entry.challengeId) === previousChallengeId)
-    .sort((a, b) => {
-      const bDate = parseCompletionDate(b.completedAt);
-      const aDate = parseCompletionDate(a.completedAt);
-      return (bDate ? bDate.getTime() : 0) - (aDate ? aDate.getTime() : 0);
-    })[0];
-  if (!previousEntry) return null;
-
-  const completedAt = parseCompletionDate(previousEntry.completedAt);
-  if (!completedAt) return null;
-
   const nextDuration = CHALLENGE_DURATIONS[nextChallengeId] || 24;
   const unlockTime = getChallengeStartDate(nextChallengeId, programStartDate).getTime();
   const endTime = unlockTime + nextDuration * MS_PER_HOUR;

@@ -760,6 +760,7 @@
       doc,
       getDoc,
       updateDoc,
+      runTransaction,
       increment,
       serverTimestamp,
       arrayUnion,
@@ -990,23 +991,14 @@
       // Check if the next challenge's unlock window hasn't passed yet
       if (nextChallengeNumber > 1) {
         const previousChallengeNumber = nextChallengeNumber - 1;
-        const previousChallengeEntry = submissionHistory.find(entry => Number(entry.challengeId) === previousChallengeNumber);
+        const unlockTime = getChallengeStartDate(nextChallengeNumber, programStartDate).getTime();
+        const isUnlocked = Date.now() >= unlockTime;
 
-        if (previousChallengeEntry) {
-          const completedAtDate = parseCompletionDate(previousChallengeEntry.completedAt);
-          if (!completedAtDate) {
-            showError("Your completion data is corrupted. Please contact support.");
-            return;
-          }
-          const unlockTime = getChallengeStartDate(nextChallengeNumber, programStartDate).getTime();
-          const isUnlocked = Date.now() >= unlockTime;
-
-          if (!isUnlocked) {
-            loadingState.classList.remove("show");
-            challengeContent.style.display = "none";
-            showCompletionCard(previousChallengeNumber, nextChallengeNumber, unlockTime);
-            return;
-          }
+        if (!isUnlocked) {
+          loadingState.classList.remove("show");
+          challengeContent.style.display = "none";
+          showCompletionCard(previousChallengeNumber, nextChallengeNumber, unlockTime);
+          return;
         }
       }
 
@@ -1018,16 +1010,6 @@
         challengeTimerStart = programStartDate;
       } else {
         // Challenge N: timer starts when the prior challenge's timer window ends
-        const previousEntry = submissionHistory.find(entry => Number(entry.challengeId) === nextChallengeNumber - 1);
-        if (!previousEntry) {
-          showError("Something went wrong with your challenge data.");
-          return;
-        }
-        const previousCompletedAtDate = parseCompletionDate(previousEntry.completedAt);
-        if (!previousCompletedAtDate) {
-          showError("Your completion data is corrupted. Please contact support.");
-          return;
-        }
         challengeTimerStart = getChallengeStartDate(nextChallengeNumber, programStartDate);
       }
 
@@ -1133,9 +1115,18 @@
         };
 
         const userRef = doc(db, "users", currentUser.uid);
-        await updateDoc(userRef, {
-          completedCount: increment(1),
-          submissionHistory: arrayUnion(historyEntry)
+        await runTransaction(db, async (transaction) => {
+          const freshSnap = await transaction.get(userRef);
+          const freshData = freshSnap.data() || {};
+          const freshHistory = Array.isArray(freshData.submissionHistory) ? freshData.submissionHistory : [];
+          const alreadyCompleted = freshHistory.some(entry => Number(entry.challengeId) === currentChallenge.id);
+
+          if (alreadyCompleted) return;
+
+          transaction.update(userRef, {
+            completedCount: increment(1),
+            submissionHistory: arrayUnion(historyEntry)
+          });
         });
 
         // Next challenge unlocks when this challenge's timer window ends.

@@ -1119,19 +1119,14 @@
       let lockedUnlockTime = null;
       if (activeChallengeNumber > 1) {
         const previousChallengeNumber = activeChallengeNumber - 1;
-        const previousEntry = submissionHistory.find(entry => Number(entry.challengeId) === previousChallengeNumber);
-        if (previousEntry) {
-          const completedAtDate = parseCompletionDate(previousEntry.completedAt);
-          if (completedAtDate) {
-            const unlockTime = getChallengeStartDate(activeChallengeNumber, programStartDate).getTime();
-            isUserLocked = Date.now() < unlockTime;
-            if (isUserLocked) {
-              actuallyActiveChallengeNumber = previousChallengeNumber;
-              lockedPreviousChallengeNumber = previousChallengeNumber;
-              lockedPreviousChallenge = previousChallenge;
-              lockedUnlockTime = unlockTime;
-            }
-          }
+        const previousChallenge = challenges.find(ch => ch.id === previousChallengeNumber);
+        const unlockTime = getChallengeStartDate(activeChallengeNumber, programStartDate).getTime();
+        isUserLocked = Date.now() < unlockTime;
+        if (isUserLocked) {
+          actuallyActiveChallengeNumber = previousChallengeNumber;
+          lockedPreviousChallengeNumber = previousChallengeNumber;
+          lockedPreviousChallenge = previousChallenge;
+          lockedUnlockTime = unlockTime;
         }
       }
 
@@ -1140,16 +1135,6 @@
       if (activeChallengeNumber === 1) {
         challengeTimerStart = programStartDate;
       } else {
-        const previousEntry = submissionHistory.find(entry => Number(entry.challengeId) === activeChallengeNumber - 1);
-        if (!previousEntry) {
-          showError("Something went wrong loading your dashboard.");
-          return;
-        }
-        const previousCompletedAtDate = parseCompletionDate(previousEntry.completedAt);
-        if (!previousCompletedAtDate) {
-          showError("Your completion data is corrupted. Please contact support.");
-          return;
-        }
         challengeTimerStart = getChallengeStartDate(activeChallengeNumber, programStartDate);
       }
 
